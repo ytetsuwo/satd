@@ -261,13 +261,40 @@ def clip_block_comment(line: str, start: int, marker: str) -> str:
     return line[start:end + len(end_marker)]
 
 
+def find_unquoted_marker(line: str, markers: tuple[str, ...]) -> tuple[int, str] | None:
+    quote = ""
+    escaped = False
+
+    for index, char in enumerate(line):
+        if quote:
+            if escaped:
+                escaped = False
+                continue
+            if char == "\\":
+                escaped = True
+                continue
+            if char == quote:
+                quote = ""
+            continue
+
+        if char in {'"', "'"}:
+            quote = char
+            continue
+
+        for marker in markers:
+            if line.startswith(marker, index):
+                return index, marker
+
+    return None
+
+
 def detect_single_line_comment(line: str) -> tuple[str, str] | None:
-    for marker in ("//", "/*", "<!--"):
-        position = line.find(marker)
-        if position >= 0:
-            if marker in {"/*", "<!--"}:
-                return clip_block_comment(line, position, marker), marker
-            return line[position:], marker
+    found = find_unquoted_marker(line, ("//", "/*", "<!--"))
+    if found is not None:
+        position, marker = found
+        if marker in {"/*", "<!--"}:
+            return clip_block_comment(line, position, marker), marker
+        return line[position:], marker
 
     stripped = line.lstrip()
     for marker in ("--", "#", ";"):
@@ -328,13 +355,11 @@ def extract_comment_blocks(path: Path) -> list[CommentBlock]:
 
         block_marker = None
         block_position = -1
-        for marker in ("/*", "<!--"):
-            position = line.find(marker)
-            if position >= 0 and (block_position == -1 or position < block_position):
-                block_marker = marker
-                block_position = position
+        first_marker = find_unquoted_marker(line, ("//", "/*", "<!--"))
+        if first_marker is not None:
+            block_position, block_marker = first_marker
 
-        if block_marker is not None:
+        if block_marker in {"/*", "<!--"}:
             flush_single_comment_block(line_number - 1)
             current_start = line_number
             current_lines = [clip_block_comment(line, block_position, block_marker)]
