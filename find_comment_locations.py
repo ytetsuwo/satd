@@ -81,6 +81,18 @@ def flat_key(lines: list[str]) -> str:
     return " ".join(lines)
 
 
+def match_type_priority(match_type: str) -> int:
+    priorities = {
+        "block": 0,
+        "block_flat": 1,
+        "block_stripped": 2,
+        "block_flat_stripped": 3,
+        "line": 4,
+        "line_stripped": 5,
+    }
+    return priorities.get(match_type, 99)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Locate comment_text entries inside source repositories."
@@ -222,6 +234,10 @@ def normalize_block(text: str, strip_prefix: bool) -> list[str]:
     return normalized
 
 
+def has_substantive_comment_text(text: str) -> bool:
+    return bool(normalize_block(text, True))
+
+
 def restore_flattened_comment_lines(text: str) -> list[str]:
     stripped = text.strip()
     if not stripped or "\n" in stripped:
@@ -243,6 +259,8 @@ def normalized_comment_variants(text: str, strip_prefix: bool) -> list[list[str]
         candidates.append("\n".join(restored))
 
     for candidate in candidates:
+        if not has_substantive_comment_text(candidate):
+            continue
         normalized = normalize_block(candidate, strip_prefix)
         key = tuple(normalized)
         if not normalized or key in seen:
@@ -408,6 +426,8 @@ def build_repo_index(repo_path: Path) -> dict[tuple[bool, str], list[MatchLocati
     for source_file in iter_source_files(repo_path):
         relative_path = str(source_file.relative_to(repo_path))
         for block in extract_comment_blocks(source_file):
+            if not has_substantive_comment_text(block.text):
+                continue
             for strip_prefix in (False, True):
                 normalized_lines = normalize_block(block.text, strip_prefix)
                 if not normalized_lines:
@@ -446,19 +466,71 @@ def build_repo_index(repo_path: Path) -> dict[tuple[bool, str], list[MatchLocati
 
 
 def dedupe_locations(locations: list[MatchLocation]) -> list[MatchLocation]:
-    unique = []
-    seen = set()
+    grouped: dict[str, dict[tuple[int, int], MatchLocation]] = defaultdict(dict)
     for location in locations:
-        key = (
-            location.file_path,
-            location.start_line,
-            location.end_line,
+        key = (location.start_line, location.end_line)
+        existing = grouped[location.file_path].get(key)
+        if existing is None or (
+            match_type_priority(location.match_type)
+            < match_type_priority(existing.match_type)
+        ):
+            grouped[location.file_path][key] = location
+
+    unique = []
+    for file_path in sorted(grouped):
+        file_locations = sorted(
+            grouped[file_path].values(),
+            key=lambda loc: (
+                loc.start_line,
+                -loc.end_line,
+                match_type_priority(loc.match_type),
+            ),
         )
-        if key in seen:
-            continue
-        seen.add(key)
-        unique.append(location)
+        kept: list[MatchLocation] = []
+        for location in file_locations:
+            skip = False
+            for index, existing in enumerate(kept):
+                existing_contains_location = (
+                    existing.start_line <= location.start_line
+                    and existing.end_line >= location.end_line
+                )
+                if existing_contains_location and (
+                    match_type_priority(existing.match_type)
+                    <= match_type_priority(location.match_type)
+                ):
+                    skip = True
+                    break
+
+                location_contains_existing = (
+                    location.start_line <= existing.start_line
+                    and location.end_line >= existing.end_line
+                )
+                if location_contains_existing and (
+                    match_type_priority(location.match_type)
+                    < match_type_priority(existing.match_type)
+                ):
+                    kept[index] = location
+                    skip = True
+                    break
+
+            if not skip:
+                kept.append(location)
+
+        unique.extend(kept)
+
     return unique
+
+
+def prefer_strongest_match_type(locations: list[MatchLocation]) -> list[MatchLocation]:
+    if not locations:
+        return []
+
+    best_priority = min(match_type_priority(location.match_type) for location in locations)
+    return [
+        location
+        for location in locations
+        if match_type_priority(location.match_type) == best_priority
+    ]
 
 
 def find_locations(
@@ -476,7 +548,14 @@ def find_locations(
             if len(normalized_lines) == 1:
                 collected.extend(repo_index.get((strip_prefix, normalized_lines[0]), []))
 
-    return dedupe_locations(collected)[:max_matches]
+    return prefer_strongest_match_type(dedupe_locations(collected))[:max_matches]
+
+
+def count_comment_occurrences(rows: list[dict[str, str]]) -> dict[tuple[str, str], int]:
+    counts: dict[tuple[str, str], int] = defaultdict(int)
+    for row in rows:
+        counts[(row["project_name"], row["comment_text"])] += 1
+    return dict(counts)
 
 
 def build_unique_entries(rows: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -576,6 +655,7 @@ def main() -> int:
     args = parse_args()
     input_fieldnames, rows = load_input_rows(Path(args.csv_path), set(args.project))
     entries = build_unique_entries(rows) if args.mode == "unique" else rows
+    row_comment_counts = count_comment_occurrences(rows) if args.mode == "rows" else {}
     mapping = load_mapping(args.mapping)
 
     output_handle = (
@@ -594,6 +674,8 @@ def main() -> int:
         projects = sorted({entry["project_name"] for entry in entries})
         repo_indexes: dict[str, dict[tuple[bool, str], list[MatchLocation]]] = {}
         repo_paths: dict[str, Path | None] = {}
+        assigned_location_counts: dict[tuple[str, str], int] = defaultdict(int)
+        location_cache: dict[tuple[str, str], list[MatchLocation]] = {}
 
         for project_name in projects:
             repo_path = resolve_repo_path(project_name, args.repos_root, mapping)
@@ -612,11 +694,30 @@ def main() -> int:
             project_name = entry["project_name"]
             repo_path = repo_paths.get(project_name)
             repo_index = repo_indexes.get(project_name, {})
-            locations = find_locations(
-                entry["comment_text"],
-                repo_index,
-                args.max_matches,
-            ) if repo_path else []
+            locations = []
+            if repo_path:
+                key = (project_name, entry["comment_text"])
+                locations = location_cache.get(key, [])
+                if key not in location_cache:
+                    max_matches = args.max_matches
+                    if args.mode == "rows":
+                        max_matches = max(max_matches, row_comment_counts.get(key, 0))
+
+                    locations = find_locations(
+                        entry["comment_text"],
+                        repo_index,
+                        max_matches,
+                    )
+                    location_cache[key] = locations
+
+                if args.mode == "rows":
+                    if row_comment_counts.get(key, 0) > 1:
+                        used_count = assigned_location_counts[key]
+                        locations = locations[used_count:used_count + 1]
+                        if locations:
+                            assigned_location_counts[key] += 1
+                    else:
+                        locations = locations[:1]
             write_result_rows(
                 writer,
                 entry,

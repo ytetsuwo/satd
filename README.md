@@ -132,6 +132,8 @@ project_name,classification,comment_text,satd_orig,satd
 - `end_line`
   コメント終了行
 
+`--mode rows` では、同じ `project_name` と `comment_text` の行が複数ある場合、同じ位置を使い回しません。1件目は最初の一致箇所、2件目以降は既に出力した位置を除いた次の一致箇所を1件ずつ割り当てます。
+
 出力例:
 
 ```csv
