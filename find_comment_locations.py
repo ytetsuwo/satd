@@ -105,8 +105,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--mode",
         choices=("unique", "rows"),
-        default="unique",
-        help="Output one row per unique comment or per input CSV row.",
+        default="rows",
+        help="Output one row per input CSV row or per unique comment.",
     )
     parser.add_argument(
         "--max-matches",
