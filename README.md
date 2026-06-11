@@ -25,6 +25,8 @@
 
 `repo_map.example.csv` を参考に `repo_map.csv` を作成します。
 
+`repo_path` には、通常は `src` や `test` の親を含むリポジトリルートを指定します。例えば JMeter のテストコードも検索したい場合は `repos/jmeter` を指定します。
+
 ```csv
 project_name,repo_path
 apache-ant-1.7.0,repos/ant
@@ -81,11 +83,11 @@ python3 csv_summary.py maldonado_corrected.csv --group-by classification --group
 - `--project`
   指定した `project_name` だけを処理。複数指定可
 - `--mode rows`
-  入力CSVの各行ごとに出力。既定値
+  入力CSVの各行ごとに出力。既定値。各入力行につき出力は最大1件
 - `--mode unique`
   `project_name + comment_text` 単位で重複をまとめて出力
 - `--max-matches`
-  1コメントあたりの最大出力件数。既定値は `5`
+  主に `--mode unique` での1コメントあたりの最大出力件数。既定値は `5`
 - `--output`
   出力先CSV。`-` を指定すると標準出力
 
@@ -132,7 +134,9 @@ project_name,classification,comment_text,satd_orig,satd
 - `end_line`
   コメント終了行
 
-`--mode rows` では、同じ `project_name` と `comment_text` の行が複数ある場合、同じ位置を使い回しません。1件目は最初の一致箇所、2件目以降は既に出力した位置を除いた次の一致箇所を1件ずつ割り当てます。
+`--mode rows` では、各入力行につき出力は最大1件です。
+
+同じ `project_name` と `comment_text` の行が複数ある場合は、同じ位置を使い回しません。1件目は最初の一致箇所、2件目以降は既に出力した位置を除いた次の一致箇所を1件ずつ割り当てます。候補を使い切った行は `not_found` になります。
 
 出力例:
 
@@ -142,6 +146,8 @@ input_row,project_name,comment_text,repo_path,match_status,match_type,file_path,
 ```
 
 `--mode unique` では入力行ごとの情報ではなく、`project_name` と `comment_text` の組ごとに `input_count` を出力します。
+
+`--mode unique` では、同じコメントに複数の一致箇所があれば `--max-matches` 件まで出力します。
 
 ### `csv_summary.py`
 
@@ -198,6 +204,7 @@ input_row,project_name,comment_text,repo_path,match_status,match_type,file_path,
 - 文字列リテラル中の `//` や `/*` はコメント開始として扱いません
 - `//************************************************************************` のような記号列も `//` コメントとして扱います
 - `//$NON-NLS-1$` のような行末コメントも抽出対象です
+- `//` のようにコメント記号しか無く、実質的な本文を持たないコメントは検索対象から除外します
 
 ### 正規化
 
@@ -229,15 +236,25 @@ input_row,project_name,comment_text,repo_path,match_status,match_type,file_path,
 - `line_stripped`, `block_stripped`, `block_flat_stripped`
   コメント記号を除去した正規化後に一致
 
+複数の `match_type` で同じ `comment_text` に一致する場合は、次の優先順位で最も強い1種類だけを残します。
+
+- `block`
+- `block_flat`
+- `block_stripped`
+- `block_flat_stripped`
+- `line`
+- `line_stripped`
+
 ### 重複除去
 
-同じ `file_path`, `start_line`, `end_line` を持つ候補は1件にまとめます。
+同じ `file_path`, `start_line`, `end_line` を持つ候補は1件にまとめます。さらに、同じ入力行に対して複数の候補が見つかっても、`--mode rows` では最終的に1件だけを出力します。
 
 ## 制約
 
 - コメント以外の文字列中に同じ文面があっても検出対象にはしません
 - コメント抽出は完全な構文解析ではなく、テキストベースです
-- 1つの `comment_text` が複数箇所に存在する場合、既定では先頭から最大 `5` 件まで出力します
+- `--mode rows` では、1つの入力行に対して複数箇所が見つかっても1件だけを出力します
+- `--mode unique` では、1つの `comment_text` が複数箇所に存在する場合、既定では先頭から最大 `5` 件まで出力します
 - 対象リポジトリの版がCSVの `project_name` とずれていると、当然ながら見つからないことがあります
 
 ## 変更時の目安
