@@ -8,6 +8,8 @@
   `comment_text` の出現箇所をソースコードから検索し、CSVで出力します。
 - `csv_summary.py`
   入力CSVの件数、欠損、代表的な値を確認するための補助スクリプトです。
+- `check_msr16.py`
+  msr16 の位置情報と `find_comment_locations.py` の出力を照合するテストです。
 - `repo_map.example.csv`
   `project_name` とローカルのリポジトリパスの対応表のサンプルです。
 - `setup_repos.sh`
@@ -180,6 +182,21 @@ python3 csv_summary.py maldonado_corrected.csv
 ```bash
 python3 csv_summary.py maldonado_corrected.csv --group-by classification --group-by satd
 ```
+
+## テスト
+
+`check_msr16.py` は、Maldonado らの削除研究の位置情報と、ツールが見つけた位置を照合します。
+
+```bash
+./check_msr16.py
+```
+
+- 正解: `data/msr16_td_removal/satd_locations.csv`（apache-ant、apache-jmeter、jruby の1,127箇所）
+- `--mode unique --max-matches 1000` でツールを実行し、`(project_name, comment_text)` ごとに `(file_path, start_line)` の集合を比較
+- すべて見つかれば `PASS`（終了コード0）、欠落があれば内容を表示して `FAIL`（終了コード1）
+- `repos/` が必要です。未取得なら `./setup_repos.sh` を先に実行してください
+
+`--tool`、`--dataset`、`--mapping`、`--ground-truth` で各パスを変更できます。
 
 ## `find_comment_locations.py` の引数
 
