@@ -55,14 +55,16 @@ unzip technical_debt_dataset.zip
 
 ### 1. リポジトリ対応表を用意する
 
-`repo_map.example.csv` を参考に `repo_map.csv` を作成します。
+`repo_map.csv` に10プロジェクト分の対応を用意しています。別の場所に置く場合は `repo_map.example.csv` を参考に作成します。
 
-`repo_path` には、通常は `src` や `test` の親を含むリポジトリルートを指定します。例えば JMeter のテストコードも検索したい場合は `repos/jmeter` を指定します。
+`repo_path` には、通常は `src` や `test` の親を含むリポジトリルートを指定します。例えば JMeter のテストコードも検索したい場合は `repos/apache-jmeter-2.10` を指定します。
+
+ディレクトリ名は `maldonado_corrected.csv` の `project_name` と一致させています。
 
 ```csv
 project_name,repo_path
-apache-ant-1.7.0,repos/ant
-apache-jmeter-2.10,repos/jmeter
+apache-ant-1.7.0,repos/apache-ant-1.7.0
+apache-jmeter-2.10,repos/apache-jmeter-2.10
 argouml,repos/argouml
 ```
 
