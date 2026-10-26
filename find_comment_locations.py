@@ -257,6 +257,14 @@ def parse_args() -> argparse.Namespace:
             "and per-match blame reports."
         ),
     )
+    parser.add_argument(
+        "--no-artifacts",
+        action="store_true",
+        help=(
+            "With --blame, skip saving commit metadata, patches, and blame "
+            "reports. The blame columns are still written to the output CSV."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -1393,7 +1401,9 @@ def main() -> int:
     entries = build_unique_entries(rows) if args.mode == "unique" else rows
     row_comment_counts = count_comment_occurrences(rows) if args.mode == "rows" else {}
     mapping = load_mapping(args.mapping)
-    artifacts_dir = args.artifacts_dir.resolve() if args.blame else None
+    artifacts_dir = (
+        args.artifacts_dir.resolve() if args.blame and not args.no_artifacts else None
+    )
     if artifacts_dir is not None:
         artifacts_dir.mkdir(parents=True, exist_ok=True)
     include_context = args.context_lines > 0

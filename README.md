@@ -171,6 +171,8 @@ python3 find_comment_locations.py \
 - `matches/<project_name>/*.json`
   コメント範囲の各行がどのコミットに対応するか、および保存済みコミットファイルへの参照
 
+`--no-artifacts` を付けると、これらのファイルは保存せず、blame の結果だけをCSVに出力します。行単位レポートを保存しないため、`blame_report_path` は空になります。
+
 ### 3. 入力CSVを要約する
 
 ```bash
@@ -222,6 +224,8 @@ python3 csv_summary.py maldonado_corrected.csv --group-by classification --group
   マッチしたコメントの開始行の前と終了行の後から、指定した行数を `code_before` / `code_after` として出力に追加。既定値は `0`（無効）
 - `--artifacts-dir`
   `--blame` で取得したコミット情報、差分、行単位 blame レポートの保存先。既定値は `comment_git_artifacts`
+- `--no-artifacts`
+  `--blame` 時の証拠ファイル（コミット情報、差分、行単位レポート）を保存しない。CSVの blame 列は通常どおり出力
 
 ## 入力仕様
 
@@ -282,7 +286,7 @@ project_name,classification,comment_text,satd_orig,satd
 - `blame_line_commits`
   行番号ごとのコミット対応。例: `188-190=<sha>;191=<sha>`
 - `blame_report_path`
-  保存した行単位 blame レポート JSON のパス
+  保存した行単位 blame レポート JSON のパス。`--no-artifacts` 時は空
 - `blame_error`
   `git blame` や `git show` が失敗した場合のエラー内容
 
