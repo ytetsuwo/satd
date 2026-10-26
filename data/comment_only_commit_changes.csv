@@ -1,0 +1,119 @@
+project_name,commit_id,author_name,commit_date,subject,satd_comments,added,deleted,rewritten,kept,untouched,category
+apache-ant-1.7.0,74f58bf0f81de6bc03df6bc1d5315bef92d8f0e4,Antoine Levy-Lambert,2003-09-12T20:56:46Z,Typos Submitted by: Larry Shatzer (larry dot shatzer at servent dot com),4,0,0,0,0,4,other_comments
+apache-ant-1.7.0,809cec5240cb205fe82a621a27246820ee3a6013,Matthew Jason Benson,2005-01-24T21:55:44Z,Javadoc,1,0,0,0,0,1,other_comments
+apache-jmeter-2.10,7e331a4ae1b6a9b4d4e476ad9c78745d09838e94,Sebastian Bazley,2010-01-21T14:42:12Z,Add TODO,1,0,0,0,0,1,other_comments
+apache-jmeter-2.10,b1a66f6dc7baa645fb1f167577df44949c219cb1,Sebastian Bazley,2011-01-11T00:42:12Z,Docs,1,1,0,0,0,0,satd_added
+apache-jmeter-2.10,b933527d46e15cee104565111d22f37dbd09eb7b,Sebastian Bazley,2012-11-10T15:48:03Z,Add TODO,1,0,0,0,0,1,other_comments
+apache-jmeter-2.10,c457311de7439627d98cadbbc28c38263111cd2f,Philippe Mouawad,2011-11-20T13:27:54Z,Document broken code,1,0,0,1,0,0,satd_rewritten
+apache-jmeter-2.10,c83b73ca72893701a689c3e545b8975ffc126a25,Sebastian Bazley,2011-11-25T00:41:07Z,Add comment,1,1,0,0,0,0,satd_added
+apache-jmeter-2.10,cfebc5bd20bca0cba98a66889accab3144a866de,Sebastian Bazley,2013-07-05T16:17:01Z,Clarify issue with BeanShell compilation,1,0,0,0,1,0,satd_kept
+apache-jmeter-2.10,d64ddad53109479afa88a7b89e56e19a725e7383,Philippe Mouawad,2012-09-04T19:59:44Z,Add TODO,1,1,0,0,0,0,satd_added
+apache-jmeter-2.10,ee46e369a4372448616dc4ebf1731e57b5a4f2c3,Jordi Salvat i Alabart,2004-02-10T21:24:01Z,ASFv2 License. CVS Tags.,1,0,0,0,0,1,other_comments
+apache-jmeter-2.10,ef5e55c4cc64e45dfb8b92cd4f6664f1f9d42406,Sebastian Bazley,2011-10-06T18:54:44Z,Possible efficiency fix,1,0,0,0,0,1,other_comments
+argouml,003e60cc6c93dfdc7d2ce55700e5dd3585d61d3d,Tom Morris,2008-12-02T16:20:02Z,Add TODO,1,0,0,0,0,1,other_comments
+argouml,00b69ebd57493a2358ea2bf5b4704b6dcfe94a98,Michiel van der Wulp,2011-05-03T06:04:48Z,Comment only.,1,0,0,0,0,1,other_comments
+argouml,03e2959a269f0f1e673279b8c59562110859e156,Michiel van der Wulp,2005-03-10T19:29:05Z,"Clean up old comments, added a TODO.",1,0,0,0,0,1,other_comments
+argouml,061d853bd4873625c98824f78a93b662eeb83af0,Tom Morris,2008-03-28T06:32:34Z,Improve comments,2,0,0,0,0,2,other_comments
+argouml,06b147675003a07a2b59c72540075107fe6bee03,Michiel van der Wulp,2008-12-12T11:14:35Z,Comment only.,1,0,0,0,0,1,other_comments
+argouml,07040c0433718ece6b24edf84ea47b4870553913,Tom Morris,2008-12-22T18:28:20Z,Add TODO.  No functional change.,1,1,0,0,0,0,satd_added
+argouml,08e6067cd1715b0439c00bc070836a175d9b7ef1,Markus Klink,2002-10-28T03:46:05Z,changed javadoc Issue number: Obtained from: Submitted by: Reviewed by:,1,0,0,0,0,1,other_comments
+argouml,0f6af2afdd82903d6483ba839b8feab5b4cff5a0,Michiel van der Wulp,2008-04-26T09:58:01Z,Added comment about missing text.,1,0,0,0,0,1,other_comments
+argouml,13c8da8f4fbc44fbe0e66577d37cc6de375bcb4e,Linus Tolke,2006-04-29T09:08:11Z,Style issues.,1,0,0,0,0,1,other_comments
+argouml,1531e4c903a4ef83ec76e85e53dbd87f8851f2a2,Tom Morris,2009-03-26T20:09:03Z,TODOs,2,0,0,0,0,2,other_comments
+argouml,1559fb04450794950c393956dd8783238a15866b,Michiel van der Wulp,2009-01-18T08:38:41Z,Added comment only.,1,0,0,0,0,1,other_comments
+argouml,16909b8c8a3d4f58982a9d1a3d5ae39967f300f3,Michiel van der Wulp,2012-04-24T06:32:48Z,Comment only,1,0,0,0,0,1,other_comments
+argouml,17596cc9ac3594d6e5e3618ec3da5616cde3bd4b,Tom Morris,2006-11-29T19:25:51Z,Minor Javadoc clarifications.,1,0,0,0,0,1,other_comments
+argouml,18c701a301234f56a284cf842d932e1eb3d0a16b,Tom Morris,2007-11-04T18:46:37Z,Mark isReturn() and hasReturnParameterDirectionKind() as duplicates and remove redundant implementation.,2,0,0,0,0,2,other_comments
+argouml,1979bd1469e9ea0e2e1bfefe3f0f10a633f77082,Michiel van der Wulp,2004-08-02T11:34:35Z,Style issues.,1,0,0,0,0,1,other_comments
+argouml,1b3c2ed8ae26de9ee963ce13874e14ce024afe46,Markus Klink,2002-10-22T15:22:37Z,added some javadocs,2,0,0,0,0,2,other_comments
+argouml,1d49119fba3ff916bbfd3c2cbad4fa3dd5377f2f,Michiel van der Wulp,2008-12-15T09:36:22Z,Comments only.,1,0,0,0,0,1,other_comments
+argouml,213d54af7878ac8a0aa30f48f9c254d40974a792,Michiel van der Wulp,2008-11-04T15:32:06Z,Add To Do comment only.,1,0,0,0,0,1,other_comments
+argouml,2d7af95f30efbeb3ca92057e84b55eb4803b24eb,Tom Morris,2006-11-05T00:13:25Z,Add todo/warning about internal knowledge shared between GEF and ArgoUML,1,0,0,0,0,1,other_comments
+argouml,3043e26c1594da76ca885778294893df1170e412,Tom Morris,2006-11-07T05:03:09Z,Add TODOs for UML 1.3 TaggedValue code that needs to be updated for UML 1.4,2,0,0,0,0,2,other_comments
+argouml,30f4a6760930cb1bc7c9d75cdc2f2a1df1406bb1,Linus Tolke,2003-11-18T09:01:09Z,Corrected javadoc to use specific argouml features.,1,0,0,0,0,1,other_comments
+argouml,3184cc49a5f1bf02edfe6832893f1e8e4c758d1c,Bob Tarling,2006-07-07T18:49:19Z,javadoc,1,0,0,0,0,1,other_comments
+argouml,318cfe91c354be90f6e5034f49a41fbe370a743c,Michiel van der Wulp,2008-02-07T22:37:13Z,Improved comments.,1,0,0,0,0,1,other_comments
+argouml,31f56b37a0830b57054c4382d48be0695f8dd367,Thomas Neustupny,2010-05-07T08:21:41Z,UML2: just added some out-commented code that probably was useful (I just forgot why),1,1,0,0,0,0,satd_added
+argouml,325884f756be9f75cff3e09c1e3861ca45db5a17,Tom Morris,2006-09-12T05:07:13Z,TODOs for the ToDos,2,0,0,0,0,2,other_comments
+argouml,32f409ca93620ded87ec87526adf71d30c94c7b7,Michiel van der Wulp,2004-12-20T14:12:28Z,Improved comments.,1,0,0,0,0,1,other_comments
+argouml,37fdbba1b79371d9ffc099ffda83525bd3665cd0,Michiel van der Wulp,2008-04-06T08:27:41Z,Added a TODO.,1,0,0,0,0,1,other_comments
+argouml,380396c26c6878807b7a9649d51dd56c711fc650,Tom Morris,2008-07-27T15:45:00Z,TODO marking non-thread safe code.  No functional change.,1,0,0,0,0,1,other_comments
+argouml,380fc2a9414e2c23b3180e3766b897c930afa7c0,Bob Tarling,2009-08-01T15:17:38Z,Questionable use of SelectionClass,1,0,0,0,0,1,other_comments
+argouml,3c259f1a8e1b68ec6f4ef3264a7f36616af62cfd,Michiel van der Wulp,2010-08-04T20:24:37Z,Document the way to get rid of the ProjectManager.getManager().getCurrentProject() call.,1,0,0,0,0,1,other_comments
+argouml,4c0b246e30707a82936f3d10bcf51877e229e531,Michiel van der Wulp,2008-05-15T18:38:09Z,Added comment.,1,0,0,0,0,1,other_comments
+argouml,4dc6893e5214819a700dec6afc25e62b5b3528fc,Thierry Lach,2003-09-17T00:58:02Z,Added javadoc.,1,0,0,0,0,1,other_comments
+argouml,4dec40b15eb86a9705a85b4e4a1fc104328ee8ad,Michiel van der Wulp,2008-02-22T21:51:12Z,Amended comments.,3,0,0,0,0,3,other_comments
+argouml,4edb236b40015d09db27b2c9df26fd1daaa7e029,Bob Tarling,2009-02-17T00:35:31Z,Comment only,1,0,0,0,0,1,other_comments
+argouml,5c133f18965865d66173cc98dec0ab954551921b,Tom Morris,2008-11-23T17:47:50Z,Add warnings/TODOs to places using default platform character encoding,2,0,0,0,0,2,other_comments
+argouml,61c4538f133f2e096f738c3c00ef6c7acf68c834,Bob Tarling,2008-06-08T22:45:04Z,TODO,1,0,0,0,0,1,other_comments
+argouml,657bb234d5c629eab358f5c256c52ea182cfd584,Bob Tarling,2009-02-09T22:30:24Z,Comments based on issue 5692,1,0,0,0,0,1,other_comments
+argouml,67489b09f1d49cec6940a7be49d56da017204c63,Michiel van der Wulp,2005-09-03T18:19:44Z,"Reversed this change. On Linux + Java 1.4 it kind of works, but on WinXP + Java 5 the default laf is gone.",1,0,0,0,0,1,other_comments
+argouml,6a41a92cf32b23e232df5d40ebc0482a5dca84b6,Tom Morris,2008-05-07T16:45:06Z,Add TODO for code generation settings,1,0,0,1,0,0,satd_rewritten
+argouml,6b7caf1caec8a888424267918128749f9fc4f03b,Michiel van der Wulp,2007-06-13T18:56:14Z,"Clarified the meaning of the ""name"". Improvements needed.",2,0,0,0,0,2,other_comments
+argouml,6b89d47dadd775be0412173379c784cc530998c1,Michiel van der Wulp,2007-06-09T20:47:33Z,Added TODO statements. IMHO these cleanups should be done in GEF.,2,0,0,0,0,2,other_comments
+argouml,6c32561d16f9ab2b2daa190a60e2bdbc250d5993,Michiel van der Wulp,2009-10-05T18:26:23Z,Comment only.,1,0,0,0,0,1,other_comments
+argouml,6c7d456c3ba61eb99998fdbdd92fe874aae5e3a9,Tom Morris,2007-06-27T18:06:22Z,Add TODO - no functional change,1,0,0,0,0,1,other_comments
+argouml,6e1ef6d929c56fc8622fa3c12a7f410fef7efdaf,Tom Morris,2008-05-05T15:27:30Z,Add comment for future extension possibilities,1,1,0,0,0,0,satd_added
+argouml,6e746658d3001c491ccb380cd612d5b17612b7b8,Tom Morris,2006-11-07T04:46:27Z,Deprecate UML 1.3 TaggedValue methods.,2,0,0,0,0,2,other_comments
+argouml,7050dd8883cbadae05a74643bde0e2c16e92099d,Tom Morris,2008-05-01T19:45:17Z,Add TODOs for issue 5050,2,1,0,0,0,1,mixed
+argouml,7065c12beb565ba3e7a71fb1471b536f8f751eb1,Michiel van der Wulp,2008-04-20T17:02:07Z,Fix for issue 5027: Top state was not initialised as top state.,1,0,0,0,0,1,other_comments
+argouml,70b159c8fdb79f0cbc37ae28cd733638c4c78d07,Bob Tarling,2008-06-15T22:20:58Z,TODO comment only,1,0,0,0,0,1,other_comments
+argouml,713ea5e40e3c58f73cfa55d05f9f74a1267848fa,Tom Morris,2008-11-15T19:13:10Z,Add TODO,1,0,0,0,0,1,other_comments
+argouml,7140b7e3b8fc7085ba27d6c244212270c0748499,Alex Bagehot,2003-05-06T21:52:16Z,fixed @deprecated usage. Issue number: 1837,2,0,0,0,0,2,other_comments
+argouml,71786f0960075af6beab4a4be7a8de9b3db981a0,Michiel van der Wulp,2007-02-16T09:02:52Z,Improved comments.,1,0,0,0,0,1,other_comments
+argouml,7a00c3989ba551723eda3ee8c406d4acfbde8116,Tom Morris,2010-04-08T23:27:52Z,"Merge ArgoEclipse fork.  No functional changes. Headers, comments, and annotations.",1,0,0,0,0,1,other_comments
+argouml,7a364a0f391e813615b278935d0e2f1d8a169cf0,Michiel van der Wulp,2007-12-21T15:31:40Z,Clarified the reason. IMHO this failure is a bug.,1,0,0,0,0,1,other_comments
+argouml,7acd5fc9606241d9cca0b48f5f80fbad7a454beb,Linus Tolke,2006-04-11T06:10:37Z,Finally an answer to Toms question in the TODO:.,1,0,0,0,0,1,other_comments
+argouml,7dcaa0729fca89fa2e48ea6d3591b44f349fc429,Michiel van der Wulp,2008-11-10T07:36:35Z,Added comments about my evaluation of the current code related to the retrieval of stereotypes. No functional change. Loosely related to issue 5061.,4,0,0,1,0,3,mixed
+argouml,803ffe04136c1cdb4d9d7c9a9aed19ec8f3c0695,Tom Morris,2008-08-29T03:58:41Z,Add performance TODOs.  No code changes.,2,0,0,0,0,2,other_comments
+argouml,81f25afe0e1a5a1a520be1ee1dcde9f7e25b8d6b,Tom Morris,2008-05-02T00:06:44Z,TODOs for issue 5059,3,0,0,0,0,3,other_comments
+argouml,87b3e9bfd38293b14169808805ff25ee80166887,Michiel van der Wulp,2008-11-11T07:29:21Z,Comment only: Reference the issue.,1,1,0,0,0,0,satd_added
+argouml,8a693680ea88690568bc125ce0f69eea41a97d8d,Michiel van der Wulp,2004-10-06T15:07:25Z,Cleanup some old comments.,1,0,0,0,0,1,other_comments
+argouml,9471026e433a1c2b96a0e023cdef40362b7f2d4e,Tom Morris,2006-11-08T20:12:49Z,Fix Javadoc warnings.,1,0,0,0,0,1,other_comments
+argouml,959604621b7e3e31d4581c2aac3b4af7c75f0283,Bob Tarling,2006-09-18T00:12:17Z,Comment,1,0,0,0,0,1,other_comments
+argouml,959fcb4be880c30a3c73a1efddb64a620a58d0bc,Tom Morris,2008-07-28T05:53:30Z,Issue 4994: Add TODOs.  No functional change.,32,0,0,2,0,30,mixed
+argouml,960bbcff18c841ead81db34cdaeb79287db7ceb3,Linus Tolke,2005-02-12T23:53:12Z,Fixed some style issues and javadoc comments.,1,0,0,0,0,1,other_comments
+argouml,9930215416648082f058211be465c119ce6c7ab6,Tom Morris,2006-01-11T21:33:10Z,Add TODO for updating to TagDefinition support,1,0,0,0,0,1,other_comments
+argouml,9babe00b62126f2f727eba044722334a4299ee7c,Tom Morris,2008-05-01T19:34:37Z,Comments and proposed alternative for issue 5049,2,1,0,0,0,1,mixed
+argouml,9c4621c4d5ed472bac9a681b98fef90399e9baec,Tom Morris,2007-03-09T07:45:02Z,Add TODO,1,0,0,0,0,1,other_comments
+argouml,9db9f8d821d9a27f61831b9866d39dbbcfd7bad4,Michiel van der Wulp,2007-12-11T20:03:46Z,Deprecated this - I am working on a replacement.,1,0,0,0,0,1,other_comments
+argouml,9fa103c849068aeecc79020858397a5dce9d77d0,Tom Morris,2008-06-21T16:29:47Z,Add TODO.  No functional change.,1,0,0,0,0,1,other_comments
+argouml,a0de9322515f035596de25b909e4649201d00516,Tom Morris,2007-01-09T23:11:03Z,Add TODOs,1,0,0,0,0,1,other_comments
+argouml,a2b1c332dea5689826f5fa3f36f8813a81d882b5,Bob Tarling,2009-09-13T21:06:13Z,Just a TODO comment,1,0,0,0,0,1,other_comments
+argouml,a6fc819bf0f89a9e4f382602515a994a2423646c,Bob Tarling,2008-05-26T21:26:30Z,TODO,1,0,0,0,0,1,other_comments
+argouml,ac79b5f8ac38b95c4484292d5d1d03fc95ec6de9,Tom Morris,2007-08-06T21:06:32Z,Mark duplicate methods with TODO,2,0,0,0,0,2,other_comments
+argouml,adb500ad226f5713ec219f087198b3b0c4795fa7,Tom Morris,2007-11-23T07:11:43Z,Comment updates.  No functional changes.,1,0,0,0,0,1,other_comments
+argouml,bae38ca09b601c00216a71fd4baf7b8cf9966dad,Michiel van der Wulp,2008-12-12T09:48:35Z,Comment only.,1,0,0,0,0,1,other_comments
+argouml,bba6d245d99b2dbf8b247587d2a6b0a851e0a3e7,Tom Morris,2008-11-28T17:27:05Z,Add TODO,1,0,0,0,0,1,other_comments
+argouml,bbff3cbf5382669308b941254e3e32d057915713,Tom Morris,2007-06-30T19:30:58Z,Add TODO,1,0,0,0,0,1,other_comments
+argouml,bcb7e2d7373cbb710382b62916285d2aa8c42052,Tom Morris,2008-12-23T00:03:53Z,Add TODO,1,0,0,0,0,1,other_comments
+argouml,bdc6b92c6656c805e47a16e33197992f408e8e54,Tom Morris,2007-10-04T03:42:24Z,Wrap long line,1,0,0,0,0,1,other_comments
+argouml,c407d82b12ef155ca8e0745788511bb0cd62338d,Michiel van der Wulp,2008-04-14T20:01:41Z,Amended comment.,1,0,0,0,0,1,other_comments
+argouml,c47ae84bcedcd842bba7b5c99b7bb79dc2944986,Tom Morris,2007-11-04T00:11:25Z,Add TODO for bad event registration,1,0,0,0,0,1,other_comments
+argouml,c65930e1668e5016a4b68fb2a6a3656ad174dcfc,Tom Morris,2008-05-01T22:34:20Z,TODOs,2,0,0,0,0,2,other_comments
+argouml,c86532661efee0c84f6e3724975b4e3d44fbd2cf,Michiel van der Wulp,2008-07-20T08:44:49Z,Added a TODO.,1,0,0,0,0,1,other_comments
+argouml,c87e619ef1f622cd9e00dec076fb9774db0702ba,Tom Morris,2007-09-05T16:46:46Z,Move TODO out of Javadoc.,1,0,0,0,0,1,other_comments
+argouml,c8905744452e1be411c69edf846278dfdf70408e,Dennis Daniels,2001-12-14T13:32:52Z,updates in javadocs,1,0,0,0,0,1,other_comments
+argouml,d0a53fd69784395611123f9250a6d64742948d18,Bob Tarling,2007-02-16T02:09:58Z,Document some existing well-formedness rules,4,0,0,0,0,4,other_comments
+argouml,d0f44acc5c7f7ff5edf4a6e56e7fc59470422591,Tom Morris,2006-11-03T23:51:55Z,Javadoc and TODO updates.  No functional changes.,1,0,0,0,0,1,other_comments
+argouml,d2313e7635c655e42c6d182bccc45625454bc279,Tom Morris,2007-02-07T03:26:41Z,Comments only - add TODO,1,0,0,0,0,1,other_comments
+argouml,d3a52ac23f76cb84e4a237f5e89d29a26fcce013,Markus Klink,2003-01-12T10:35:55Z,added javadoc Issue number: Obtained from: Submitted by: Reviewed by:,1,0,0,0,0,1,other_comments
+argouml,da8d4c14c5b00d465664d6c4ae5962c480d72a61,Alex Bagehot,2003-05-10T12:38:43Z,documenting prop panel classes and models Issue number: 1857,2,0,0,0,0,2,other_comments
+argouml,dcdfd53a778ec1bffa3325ebaddf2e0fa3ce9d1d,Tom Morris,2007-05-31T06:27:08Z,Add TODO.  No functional change.,1,0,0,0,0,1,other_comments
+argouml,df529de3f771100cd95a2fb818603595d079b729,Tom Morris,2007-05-03T16:58:24Z,Add TODOs,4,0,0,0,0,4,other_comments
+argouml,e4b440e94b9c56569c7121ec48a45609b23b25d8,Michiel van der Wulp,2004-10-03T08:11:11Z,Style issues.,2,0,0,0,0,2,other_comments
+argouml,e9e653f2ca14601c4b774750c73f5937abca043a,Tom Morris,2008-12-23T19:21:04Z,Add TODOs for future settings work.  No functional change.,2,0,0,0,0,2,other_comments
+argouml,eed7af49bd221b20707a186c5fb1baa3ef5c9811,Bob Tarling,2009-02-04T20:55:03Z,Comment only,1,0,0,0,0,1,other_comments
+argouml,f1c23ca8145abd0574f6325e436dc1007d336615,Bob Tarling,2008-04-29T23:56:03Z,Highlight design flaw,1,0,0,0,0,1,other_comments
+argouml,f34a5b64ce8b6a4f50b790ec2717b882d0d11b14,Michiel van der Wulp,2007-07-23T19:05:40Z,Comments only.,1,0,0,0,0,1,other_comments
+argouml,f522a7ff5b9a7e1e796047568b2873cf97dbd156,Tom Morris,2010-01-02T22:28:01Z,TODOs,2,2,0,0,0,0,satd_added
+argouml,ffb71e3751c9626cf53ea28a213e9d4687038d0d,Tom Morris,2007-07-24T17:52:14Z,Update Javadoc for getModel().  No functional change.,1,0,0,0,0,1,other_comments
+jfreechart-1.0.19,273a6a79e772bd8cced2f6b7f13f13497e6103ba,David Gilbert,2009-02-14T08:16:56Z,Minor edit.,1,0,0,0,0,1,other_comments
+jfreechart-1.0.19,2d37d23cf379a564d9ce9dc18746d4e307eadf06,David Gilbert,2009-03-04T13:18:53Z,Fixed Checkstyle warnings.,2,2,0,0,0,0,satd_added
+jfreechart-1.0.19,3fed84bfc443541e74630be868c0f864afc977f7,David Gilbert,2008-05-07T13:43:02Z,Removed tabs.,1,0,0,1,0,0,satd_rewritten
+jfreechart-1.0.19,78bf99062c5b82fb093b26df66fc611f0e23abcb,David Gilbert,2009-04-10T10:05:59Z,Added a FIXME.,1,0,0,0,0,1,other_comments
+jfreechart-1.0.19,7f7253aaacd15ed8c13ebb2ef875a27993c0ea7a,David Gilbert,2007-11-13T11:47:31Z,Fixed Checkstyle warning.,1,1,0,0,0,0,satd_added
+jruby-1.4.0,0aa32bd5b65ad2dea484352b8e12a700e937f8bf,Vladimir Sizikov,2008-06-22T14:58:30Z,Fixed typos in Ruby and RubyObject.,1,0,0,0,0,1,other_comments
+jruby-1.4.0,1425b9a0ea46d36fe2d294af5c5b45ba137f58d6,Charles Oliver Nutter,2009-08-02T14:07:46-05:00,"Add link to Android enum bug, so we can check back whether it's been fixed.",1,0,0,0,0,1,other_comments
+jruby-1.4.0,8934d858b4d86b5fda74c44d015b29913b437823,Charles Oliver Nutter,2009-02-05T22:26:33Z,Add TODO comments I forgot to save in lexer.,2,1,0,0,1,0,mixed
+jruby-1.4.0,b0d5d0744f9b3ad79fd44a42035f551cb71ca2c6,Charles Oliver Nutter,2009-01-29T01:41:13Z,"Add a FIXME to the JavaUtil method for converting strings, since it doesn't actually allow anything but strings and seems to do so.",1,1,0,0,0,0,satd_added
