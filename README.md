@@ -173,6 +173,19 @@ python3 find_comment_locations.py \
 
 `--no-artifacts` を付けると、これらのファイルは保存せず、blame の結果だけをCSVに出力します。行単位レポートを保存しないため、`blame_report_path` は空になります。
 
+10プロジェクト全体を blame 付き・成果物なしで実行する場合:
+
+```bash
+python3 find_comment_locations.py \
+  maldonado_corrected.csv \
+  --mapping repo_map.csv \
+  --blame \
+  --no-artifacts \
+  --output data/comment_locations_all.csv
+```
+
+全履歴の `repos/` がそろっていれば、約45分で62,275行を処理します。
+
 ### 3. 入力CSVを要約する
 
 ```bash
@@ -199,6 +212,20 @@ python3 csv_summary.py maldonado_corrected.csv --group-by classification --group
 - `repos/` が必要です。未取得なら `./setup_repos.sh` を先に実行してください
 
 `--tool`、`--dataset`、`--mapping`、`--ground-truth` で各パスを変更できます。
+
+`verify_comment_locations.py` は、全件実行の出力をデータセットと突き合わせて検証します。
+
+```bash
+./verify_comment_locations.py data/comment_locations_all.csv
+```
+
+- 出力行と `maldonado_corrected.csv` の `input_row` 対応、全行の網羅
+- `file_path` と行番号の妥当性（ファイルの存在、行範囲）
+- コメント本文が該当行にあるか（完全一致、部分一致、コメント断片の順序一致）
+- blame の成否と `blame_commit_ids` / `blame_line_commits`
+- 本文の不一致率が `--max-text-failure-rate`（既定 1%）を超えると `FAIL`
+
+CR のみで改行されたファイルは `git blame` が失敗しますが、`blame_cr_only` として集計し、失敗扱いにしません。
 
 ## `find_comment_locations.py` の引数
 
@@ -378,6 +405,14 @@ input_row,project_name,comment_text,repo_path,match_status,match_type,file_path,
 - 複数行を空白1つで連結したキー
 
 これにより、入力CSV側が改行付きでも1行に潰れていても一致しやすくしています。
+
+### 行番号の扱い
+
+`start_line` / `end_line` はファイルの物理行（1始まり）です。
+
+- 改行は LF、CRLF、CR のいずれも1行として数えます
+- フォームフィード（`\x0c`）などの制御文字では行を分割しません（`str.splitlines()` は分割するため使いません）
+- CR のみで改行されたファイルは `git blame` が行を認識できず、`blame_status` が `blame_failed` になります。位置の特定自体は行えます
 
 ### `match_type`
 

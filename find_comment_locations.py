@@ -456,6 +456,21 @@ def detect_single_line_comment(line: str) -> tuple[str, str] | None:
     return None
 
 
+def read_source_lines(content: str) -> list[str]:
+    """Split source text into physical lines.
+
+    Only newline sequences (CRLF, LF, CR) are treated as line breaks.
+    str.splitlines() also breaks on form feeds and other control characters,
+    which shifts line numbers relative to editors and git blame.
+    """
+
+    normalized = content.replace("\r\n", "\n").replace("\r", "\n")
+    lines = normalized.split("\n")
+    if lines and lines[-1] == "":
+        lines.pop()
+    return lines
+
+
 def extract_comment_blocks(path: Path) -> list[CommentBlock]:
     try:
         content = path.read_text(encoding="utf-8", errors="ignore")
@@ -463,7 +478,7 @@ def extract_comment_blocks(path: Path) -> list[CommentBlock]:
         return []
 
     blocks: list[CommentBlock] = []
-    lines = content.splitlines()
+    lines = read_source_lines(content)
     in_block = False
     end_marker = ""
     current_lines: list[str] = []
@@ -1006,7 +1021,7 @@ def load_repo_file_lines(
         cache[cache_key] = None
         return None
 
-    lines = content.splitlines()
+    lines = read_source_lines(content)
     cache[cache_key] = lines
     return lines
 
