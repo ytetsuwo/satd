@@ -314,7 +314,7 @@ project_name,classification,comment_text,satd_orig,satd
 - `end_line`
   コメント終了行
 - `duplicate_of`
-  `--mode rows` で、同じ本文の別の入力行が先に同じ位置へ割り当てられている場合、その入力行番号。位置が不足して `not_found` になった行にも、最初に一致した入力行番号が入る
+  `--mode rows` で、同じプロジェクト・同じ本文（空白を正規化して比較）の入力行が他にもある場合、最初の入力行番号。最初の出現行は空。`match_status` が `not_found` や `ignored_empty` の行にも入る
 
 `--context-lines` を付けた場合は、さらに次の列が追加されます。
 

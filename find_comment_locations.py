@@ -1447,7 +1447,6 @@ def write_entries(
 ) -> None:
     assigned_location_counts: dict[tuple[str, str], int] = defaultdict(int)
     location_cache: dict[tuple[str, str], list[MatchLocation]] = {}
-    first_row_by_location: dict[tuple[str, str, str, str, int, int], str] = {}
     first_row_by_comment: dict[tuple[str, str], str] = {}
     repo_status_cache: dict[str, tuple[bool, str]] = {}
     commit_artifact_cache: dict[tuple[str, str], CommitArtifact] = {}
@@ -1462,6 +1461,17 @@ def write_entries(
         blame_results: list[BlameResult] | None = [] if args.blame else None
         context_results: list[tuple[str, str]] | None = [] if include_context else None
 
+        duplicate_of = ""
+        if args.mode == "rows":
+            input_row = entry.get("_row_number", "")
+            comment_key = (
+                project_name,
+                " ".join(entry["comment_text"].split()),
+            )
+            owner = first_row_by_comment.setdefault(comment_key, input_row)
+            if owner != input_row:
+                duplicate_of = owner
+
         if repo_path is not None:
             if not has_substantive_comment_text(entry["comment_text"]):
                 write_status_row(
@@ -1471,6 +1481,7 @@ def write_entries(
                     "ignored_empty",
                     args.blame,
                     include_context,
+                    duplicate_of,
                 )
                 continue
             locations = select_locations(
@@ -1502,24 +1513,6 @@ def write_entries(
                     file_lines_cache,
                     code_context_cache,
                 )
-
-        duplicate_of = ""
-        if args.mode == "rows":
-            input_row = entry.get("_row_number", "")
-            normalized_comment = " ".join(entry["comment_text"].split())
-            comment_key = (project_name, normalized_comment)
-            if locations:
-                owner_key = (
-                    project_name,
-                    normalized_comment,
-                    *location_key(repo_path, locations[0]),
-                )
-                owner = first_row_by_location.setdefault(owner_key, input_row)
-                if owner != input_row:
-                    duplicate_of = owner
-                first_row_by_comment.setdefault(comment_key, input_row)
-            else:
-                duplicate_of = first_row_by_comment.get(comment_key, "")
 
         write_result_rows(
             writer,
