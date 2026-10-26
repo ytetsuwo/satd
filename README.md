@@ -237,7 +237,7 @@ python3 csv_summary.py maldonado_corrected.csv --group-by classification --group
 - blame の成否と `blame_commit_ids` / `blame_line_commits`
 - 本文の不一致率が `--max-text-failure-rate`（既定 1%）を超えると `FAIL`
 
-CR のみで改行されたファイルは `git blame` が失敗しますが、`blame_cr_only` として集計し、失敗扱いにしません。
+CR のみで改行されたファイルは `git blame` が行を認識できないため、ファイル単位の最終コミットを `blame_file_level` として扱い、失敗扱いにしません。
 
 ## 全件の結果
 
@@ -464,7 +464,8 @@ project_name,classification,comment_text,satd_orig,satd
 `--blame` を付けた場合は、さらに次の列が追加されます。
 
 - `blame_status`
-  `blamed` / `not_git_repo` / `blame_failed` など
+  `blamed`（行単位） / `blame_file_level`（CR-only ファイルのファイル単位） / `not_git_repo` / `blame_failed` など
+- `blame_file_level` のとき、`blame_commit_ids` はファイルの最終コミット、`blame_line_commits` は空になります
 - `blame_commit_ids`
   コメント範囲に対応するコミット ID の一覧
 - `blame_line_commits`
@@ -574,7 +575,7 @@ input_row,project_name,comment_text,repo_path,match_status,match_type,file_path,
 
 - 改行は LF、CRLF、CR のいずれも1行として数えます
 - フォームフィード（`\x0c`）などの制御文字では行を分割しません（`str.splitlines()` は分割するため使いません）
-- CR のみで改行されたファイルは `git blame` が行を認識できず、`blame_status` が `blame_failed` になります。位置の特定自体は行えます
+- CR のみで改行されたファイルは `git blame` が行を認識できません。この場合は `git log -1` でファイルの最終コミットを取得し、`blame_status` を `blame_file_level` にします。`blame_commit_ids` はそのコミット、`blame_line_commits` は空になります。位置の特定自体は行えます
 
 ### `match_type`
 

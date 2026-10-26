@@ -993,6 +993,36 @@ def failed_blame_result(status: str, error: str) -> BlameResult:
     )
 
 
+def file_level_blame(
+    repo_path: Path,
+    location: MatchLocation,
+    error: str,
+) -> BlameResult:
+    try:
+        body = (repo_path / location.file_path).read_bytes()
+    except OSError:
+        return failed_blame_result("blame_failed", error)
+
+    if b"\n" in body or b"\r" not in body:
+        return failed_blame_result("blame_failed", error)
+
+    completed = run_git(
+        repo_path,
+        ["log", "-1", "--format=%H", "--", location.file_path],
+    )
+    commit_id = completed.stdout.strip()
+    if completed.returncode != 0 or not commit_id:
+        return failed_blame_result("blame_failed", error)
+
+    return BlameResult(
+        status="blame_file_level",
+        commit_ids=(commit_id,),
+        line_commits="",
+        report_path="",
+        error=error,
+    )
+
+
 def blame_location(
     repo_path: Path,
     project_name: str,
@@ -1021,8 +1051,9 @@ def blame_location(
         return failed_blame_result("git_not_found", "git command not found")
 
     if completed.returncode != 0:
-        return failed_blame_result(
-            "blame_failed",
+        return file_level_blame(
+            repo_path,
+            location,
             git_error(completed, "git blame failed"),
         )
 

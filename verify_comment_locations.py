@@ -53,6 +53,7 @@ class ProjectStats:
     fragments: int = 0
     text_mismatch: int = 0
     blame_blamed: int = 0
+    blame_file_level: int = 0
     blame_other: int = 0
     blame_cr_only: int = 0
     blame_field_errors: int = 0
@@ -242,6 +243,10 @@ def main() -> int:
             project_stats.blame_blamed += 1
             if not row["blame_commit_ids"] or not row["blame_line_commits"]:
                 project_stats.blame_field_errors += 1
+        elif blame_status == "blame_file_level":
+            project_stats.blame_file_level += 1
+            if not row["blame_commit_ids"]:
+                project_stats.blame_field_errors += 1
         elif path not in cr_only_cache:
             body = path.read_bytes()
             cr_only_cache[path] = b"\n" not in body and b"\r" in body
@@ -259,6 +264,9 @@ def main() -> int:
     text_mismatch = sum(project_stats.text_mismatch for project_stats in stats.values())
     structural = sum(project_stats.structural_errors for project_stats in stats.values())
     blame_other = sum(project_stats.blame_other for project_stats in stats.values())
+    blame_file_level = sum(
+        project_stats.blame_file_level for project_stats in stats.values()
+    )
     blame_cr_only = sum(
         project_stats.blame_cr_only for project_stats in stats.values()
     )
@@ -305,7 +313,8 @@ def main() -> int:
     )
     if check_blame:
         print(
-            f"blame: blamed {matched - blame_other - blame_cr_only}, other {blame_other}, "
+            f"blame: blamed {matched - blame_other - blame_cr_only - blame_file_level}, "
+            f"file-level {blame_file_level}, other {blame_other}, "
             f"cr-only files {blame_cr_only}, field errors {blame_field_errors}"
         )
 
