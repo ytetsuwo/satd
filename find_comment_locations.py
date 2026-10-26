@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
+import json
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 import re
+import subprocess
 
 
 WHITESPACE_RE = re.compile(r"\s+")
@@ -77,6 +81,34 @@ class MatchLocation:
     match_type: str
 
 
+@dataclass(frozen=True)
+class BlameLine:
+    line_number: int
+    commit_id: str
+    author: str
+    author_mail: str
+    author_time: str
+    summary: str
+    text: str
+
+
+@dataclass(frozen=True)
+class CommitArtifact:
+    commit_id: str
+    commit_text_path: str
+    diff_patch_path: str
+    error: str
+
+
+@dataclass(frozen=True)
+class BlameResult:
+    status: str
+    commit_ids: tuple[str, ...]
+    line_commits: str
+    report_path: str
+    error: str
+
+
 def flat_key(lines: list[str]) -> str:
     return " ".join(lines)
 
@@ -91,6 +123,62 @@ def match_type_priority(match_type: str) -> int:
         "line_stripped": 5,
     }
     return priorities.get(match_type, 99)
+
+
+def sanitize_path_component(value: str) -> str:
+    sanitized = re.sub(r"[^A-Za-z0-9._-]+", "_", value.strip())
+    return sanitized or "unknown"
+
+
+def normalize_commit_id(value: str) -> str:
+    normalized = value.lstrip("^")
+    if re.fullmatch(r"0{40}", normalized):
+        return "UNCOMMITTED"
+    return normalized
+
+
+def format_git_timestamp(value: str) -> str:
+    if not value.isdigit():
+        return ""
+    return datetime.fromtimestamp(int(value), tz=timezone.utc).isoformat()
+
+
+def empty_blame_fields() -> dict[str, str]:
+    return {
+        "blame_status": "",
+        "blame_commit_ids": "",
+        "blame_line_commits": "",
+        "blame_report_path": "",
+        "blame_error": "",
+    }
+
+
+def non_negative_int(value: str) -> int:
+    try:
+        number = int(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"invalid integer value: {value!r}") from exc
+    if number < 0:
+        raise argparse.ArgumentTypeError("value must be 0 or greater")
+    return number
+
+
+def empty_context_fields() -> dict[str, str]:
+    return {
+        "code_before": "",
+        "code_after": "",
+    }
+
+
+def run_git(repo_path: Path, args: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", "-C", str(repo_path), *args],
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -130,6 +218,29 @@ def parse_args() -> argparse.Namespace:
         "--output",
         default="comment_locations.csv",
         help="Output CSV path. Use - for stdout.",
+    )
+    parser.add_argument(
+        "--blame",
+        action="store_true",
+        help="Run git blame for matched comment lines and append commit metadata.",
+    )
+    parser.add_argument(
+        "--context-lines",
+        type=non_negative_int,
+        default=0,
+        help=(
+            "Number of source lines to include before and after each matched "
+            "comment in code_before / code_after. Default is 0 (disabled)."
+        ),
+    )
+    parser.add_argument(
+        "--artifacts-dir",
+        type=Path,
+        default=Path("comment_git_artifacts"),
+        help=(
+            "Directory used with --blame to save commit metadata, patches, "
+            "and per-match blame reports."
+        ),
     )
     return parser.parse_args()
 
@@ -533,6 +644,367 @@ def prefer_strongest_match_type(locations: list[MatchLocation]) -> list[MatchLoc
     ]
 
 
+def is_git_repo(
+    repo_path: Path,
+    cache: dict[str, tuple[bool, str]],
+) -> tuple[bool, str]:
+    cache_key = str(repo_path.resolve())
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    try:
+        completed = run_git(repo_path, ["rev-parse", "--is-inside-work-tree"])
+    except FileNotFoundError:
+        result = (False, "git command not found")
+        cache[cache_key] = result
+        return result
+
+    if completed.returncode == 0 and completed.stdout.strip() == "true":
+        result = (True, "")
+    else:
+        error = completed.stderr.strip() or completed.stdout.strip() or "not a git repository"
+        result = (False, error)
+    cache[cache_key] = result
+    return result
+
+
+def parse_blame_porcelain(output: str) -> list[BlameLine]:
+    lines: list[BlameLine] = []
+    current_commit_id = ""
+    current_line_number = 0
+    metadata: dict[str, str] = {}
+
+    for raw_line in output.splitlines():
+        if raw_line.startswith("\t"):
+            if not current_commit_id:
+                continue
+            lines.append(
+                BlameLine(
+                    line_number=current_line_number,
+                    commit_id=normalize_commit_id(current_commit_id),
+                    author=metadata.get("author", ""),
+                    author_mail=metadata.get("author-mail", ""),
+                    author_time=metadata.get("author-time", ""),
+                    summary=metadata.get("summary", ""),
+                    text=raw_line[1:],
+                )
+            )
+            current_commit_id = ""
+            current_line_number = 0
+            metadata = {}
+            continue
+
+        if not current_commit_id:
+            parts = raw_line.split()
+            if len(parts) >= 3 and re.fullmatch(r"\^?[0-9a-f]{40}", parts[0]):
+                current_commit_id = parts[0]
+                current_line_number = int(parts[2])
+            continue
+
+        if raw_line == "boundary":
+            metadata["boundary"] = "true"
+            continue
+
+        if " " in raw_line:
+            key, value = raw_line.split(" ", 1)
+            metadata[key] = value
+
+    return lines
+
+
+def summarize_line_commits(lines: list[BlameLine]) -> str:
+    if not lines:
+        return ""
+
+    summarized: list[str] = []
+    start = lines[0].line_number
+    end = lines[0].line_number
+    commit_id = lines[0].commit_id
+
+    for line in lines[1:]:
+        if line.commit_id == commit_id and line.line_number == end + 1:
+            end = line.line_number
+            continue
+
+        if start == end:
+            summarized.append(f"{start}={commit_id}")
+        else:
+            summarized.append(f"{start}-{end}={commit_id}")
+        start = line.line_number
+        end = line.line_number
+        commit_id = line.commit_id
+
+    if start == end:
+        summarized.append(f"{start}={commit_id}")
+    else:
+        summarized.append(f"{start}-{end}={commit_id}")
+    return ";".join(summarized)
+
+
+def unique_commit_ids(lines: list[BlameLine]) -> list[str]:
+    commit_ids: list[str] = []
+    seen: set[str] = set()
+    for line in lines:
+        if line.commit_id in seen:
+            continue
+        seen.add(line.commit_id)
+        commit_ids.append(line.commit_id)
+    return commit_ids
+
+
+def save_commit_artifacts(
+    repo_path: Path,
+    project_name: str,
+    commit_id: str,
+    artifacts_dir: Path,
+    cache: dict[tuple[str, str], CommitArtifact],
+) -> CommitArtifact:
+    cache_key = (str(repo_path.resolve()), commit_id)
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    if commit_id == "UNCOMMITTED":
+        artifact = CommitArtifact(
+            commit_id=commit_id,
+            commit_text_path="",
+            diff_patch_path="",
+            error="line is not committed yet",
+        )
+        cache[cache_key] = artifact
+        return artifact
+
+    project_dir = artifacts_dir / "commits" / sanitize_path_component(project_name) / commit_id
+    project_dir.mkdir(parents=True, exist_ok=True)
+    commit_text_path = project_dir / "commit.txt"
+    diff_patch_path = project_dir / "diff.patch"
+
+    error = ""
+    try:
+        commit_text = run_git(
+            repo_path,
+            ["show", "--stat", "--summary", "--format=fuller", "--no-patch", commit_id],
+        )
+        diff_text = run_git(repo_path, ["show", "--format=", "--patch", commit_id])
+    except FileNotFoundError:
+        error = "git command not found"
+    else:
+        if commit_text.returncode != 0:
+            error = commit_text.stderr.strip() or commit_text.stdout.strip() or "git show failed"
+        elif diff_text.returncode != 0:
+            error = diff_text.stderr.strip() or diff_text.stdout.strip() or "git show failed"
+        else:
+            commit_text_path.write_text(commit_text.stdout, encoding="utf-8")
+            diff_patch_path.write_text(diff_text.stdout, encoding="utf-8")
+
+    artifact = CommitArtifact(
+        commit_id=commit_id,
+        commit_text_path=str(commit_text_path) if commit_text_path.exists() else "",
+        diff_patch_path=str(diff_patch_path) if diff_patch_path.exists() else "",
+        error=error,
+    )
+    cache[cache_key] = artifact
+    return artifact
+
+
+def save_blame_report(
+    repo_path: Path,
+    project_name: str,
+    location: MatchLocation,
+    blame_lines: list[BlameLine],
+    commit_artifacts: list[CommitArtifact],
+    artifacts_dir: Path,
+) -> Path:
+    report_dir = artifacts_dir / "matches" / sanitize_path_component(project_name)
+    report_dir.mkdir(parents=True, exist_ok=True)
+
+    digest_source = (
+        f"{project_name}\n{location.file_path}\n{location.start_line}\n{location.end_line}"
+    )
+    digest = hashlib.sha1(digest_source.encode("utf-8")).hexdigest()[:12]
+    report_path = report_dir / (
+        f"{sanitize_path_component(Path(location.file_path).name)}_"
+        f"L{location.start_line}-L{location.end_line}_{digest}.json"
+    )
+
+    payload = {
+        "project_name": project_name,
+        "repo_path": str(repo_path),
+        "file_path": location.file_path,
+        "start_line": location.start_line,
+        "end_line": location.end_line,
+        "commit_ids": unique_commit_ids(blame_lines),
+        "line_blame": [
+            {
+                "line_number": line.line_number,
+                "commit_id": line.commit_id,
+                "author": line.author,
+                "author_mail": line.author_mail,
+                "author_time": line.author_time,
+                "author_time_iso": format_git_timestamp(line.author_time),
+                "summary": line.summary,
+                "text": line.text,
+            }
+            for line in blame_lines
+        ],
+        "commit_artifacts": [
+            {
+                "commit_id": artifact.commit_id,
+                "commit_text_path": artifact.commit_text_path,
+                "diff_patch_path": artifact.diff_patch_path,
+                "error": artifact.error,
+            }
+            for artifact in commit_artifacts
+        ],
+    }
+    report_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return report_path
+
+
+def blame_location(
+    repo_path: Path,
+    project_name: str,
+    location: MatchLocation,
+    artifacts_dir: Path | None,
+    repo_status_cache: dict[str, tuple[bool, str]],
+    commit_artifact_cache: dict[tuple[str, str], CommitArtifact],
+) -> BlameResult:
+    is_repo, repo_error = is_git_repo(repo_path, repo_status_cache)
+    if not is_repo:
+        return BlameResult(
+            status="not_git_repo",
+            commit_ids=(),
+            line_commits="",
+            report_path="",
+            error=repo_error,
+        )
+
+    try:
+        completed = run_git(
+            repo_path,
+            [
+                "blame",
+                "--line-porcelain",
+                "-L",
+                f"{location.start_line},{location.end_line}",
+                "--",
+                location.file_path,
+            ],
+        )
+    except FileNotFoundError:
+        return BlameResult(
+            status="git_not_found",
+            commit_ids=(),
+            line_commits="",
+            report_path="",
+            error="git command not found",
+        )
+
+    if completed.returncode != 0:
+        return BlameResult(
+            status="blame_failed",
+            commit_ids=(),
+            line_commits="",
+            report_path="",
+            error=completed.stderr.strip() or completed.stdout.strip() or "git blame failed",
+        )
+
+    blame_lines = parse_blame_porcelain(completed.stdout)
+    if not blame_lines:
+        return BlameResult(
+            status="blame_failed",
+            commit_ids=(),
+            line_commits="",
+            report_path="",
+            error="git blame returned no line data",
+        )
+
+    commit_ids = unique_commit_ids(blame_lines)
+    report_path = ""
+    artifact_errors: list[str] = []
+    if artifacts_dir is not None:
+        commit_artifacts = [
+            save_commit_artifacts(
+                repo_path,
+                project_name,
+                commit_id,
+                artifacts_dir,
+                commit_artifact_cache,
+            )
+            for commit_id in commit_ids
+        ]
+        artifact_errors = [
+            f"{artifact.commit_id}: {artifact.error}"
+            for artifact in commit_artifacts
+            if artifact.error
+        ]
+        report_path = str(
+            save_blame_report(
+                repo_path,
+                project_name,
+                location,
+                blame_lines,
+                commit_artifacts,
+                artifacts_dir,
+            )
+        )
+
+    return BlameResult(
+        status="blamed",
+        commit_ids=tuple(commit_ids),
+        line_commits=summarize_line_commits(blame_lines),
+        report_path=report_path,
+        error=" | ".join(artifact_errors),
+    )
+
+
+def load_repo_file_lines(
+    repo_path: Path,
+    file_path: str,
+    cache: dict[tuple[str, str], list[str] | None],
+) -> list[str] | None:
+    cache_key = (str(repo_path.resolve()), file_path)
+    if cache_key in cache:
+        return cache[cache_key]
+
+    try:
+        content = (repo_path / file_path).read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        cache[cache_key] = None
+        return None
+
+    lines = content.splitlines()
+    cache[cache_key] = lines
+    return lines
+
+
+def extract_code_context(
+    repo_path: Path,
+    location: MatchLocation,
+    context_lines: int,
+    cache: dict[tuple[str, str], list[str] | None],
+) -> tuple[str, str]:
+    if context_lines <= 0:
+        return "", ""
+
+    lines = load_repo_file_lines(repo_path, location.file_path, cache)
+    if not lines:
+        return "", ""
+
+    before_end = max(0, min(location.start_line - 1, len(lines)))
+    before_start = max(0, before_end - context_lines)
+    after_start = max(0, min(location.end_line, len(lines)))
+    after_end = min(len(lines), after_start + context_lines)
+
+    code_before = "\n".join(lines[before_start:before_end]).strip()
+    code_after = "\n".join(lines[after_start:after_end]).strip()
+    return code_before, code_after
+
+
 def find_locations(
     comment_text: str,
     repo_index: dict[tuple[bool, str], list[MatchLocation]],
@@ -574,7 +1046,12 @@ def build_unique_entries(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     return list(grouped.values())
 
 
-def output_fieldnames(mode: str, input_fieldnames: list[str]) -> list[str]:
+def output_fieldnames(
+    mode: str,
+    input_fieldnames: list[str],
+    include_blame: bool,
+    include_context: bool,
+) -> list[str]:
     location_fields = [
         "repo_path",
         "match_status",
@@ -583,6 +1060,18 @@ def output_fieldnames(mode: str, input_fieldnames: list[str]) -> list[str]:
         "start_line",
         "end_line",
     ]
+    if include_context:
+        location_fields.extend(["code_before", "code_after"])
+    if include_blame:
+        location_fields.extend(
+            [
+                "blame_status",
+                "blame_commit_ids",
+                "blame_line_commits",
+                "blame_report_path",
+                "blame_error",
+            ]
+        )
     if mode == "rows":
         return ["input_row"] + input_fieldnames + location_fields
     return ["project_name", "comment_text", "input_count"] + location_fields
@@ -592,6 +1081,10 @@ def write_result_rows(
     writer: csv.DictWriter,
     base_row: dict[str, str],
     locations: list[MatchLocation],
+    blame_results: list[BlameResult] | None,
+    include_blame: bool,
+    context_results: list[tuple[str, str]] | None,
+    include_context: bool,
     repo_path: Path | None,
     mode: str,
     input_fieldnames: list[str],
@@ -610,7 +1103,7 @@ def write_result_rows(
         }
 
     if not repo_path:
-        writer.writerow(
+        row = (
             row_prefix
             | {
                 "repo_path": "",
@@ -621,10 +1114,15 @@ def write_result_rows(
                 "end_line": "",
             }
         )
+        if include_blame:
+            row |= empty_blame_fields()
+        if include_context:
+            row |= empty_context_fields()
+        writer.writerow(row)
         return
 
     if not locations:
-        writer.writerow(
+        row = (
             row_prefix
             | {
                 "repo_path": repo_value,
@@ -635,9 +1133,35 @@ def write_result_rows(
                 "end_line": "",
             }
         )
+        if include_blame:
+            row |= empty_blame_fields()
+        if include_context:
+            row |= empty_context_fields()
+        writer.writerow(row)
         return
 
-    for location in locations:
+    for index, location in enumerate(locations):
+        blame_fields: dict[str, str] = {}
+        if include_blame:
+            blame_fields = empty_blame_fields()
+        if include_blame and blame_results is not None and index < len(blame_results):
+            blame_result = blame_results[index]
+            blame_fields = {
+                "blame_status": blame_result.status,
+                "blame_commit_ids": ";".join(blame_result.commit_ids),
+                "blame_line_commits": blame_result.line_commits,
+                "blame_report_path": blame_result.report_path,
+                "blame_error": blame_result.error,
+            }
+        context_fields: dict[str, str] = {}
+        if include_context:
+            context_fields = empty_context_fields()
+            if context_results is not None and index < len(context_results):
+                code_before, code_after = context_results[index]
+                context_fields = {
+                    "code_before": code_before,
+                    "code_after": code_after,
+                }
         writer.writerow(
             row_prefix
             | {
@@ -648,6 +1172,8 @@ def write_result_rows(
                 "start_line": str(location.start_line),
                 "end_line": str(location.end_line),
             }
+            | context_fields
+            | blame_fields
         )
 
 
@@ -657,6 +1183,10 @@ def main() -> int:
     entries = build_unique_entries(rows) if args.mode == "unique" else rows
     row_comment_counts = count_comment_occurrences(rows) if args.mode == "rows" else {}
     mapping = load_mapping(args.mapping)
+    artifacts_dir = args.artifacts_dir.resolve() if args.blame else None
+    if artifacts_dir is not None:
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
+    include_context = args.context_lines > 0
 
     output_handle = (
         sys.stdout
@@ -667,7 +1197,12 @@ def main() -> int:
     try:
         writer = csv.DictWriter(
             output_handle,
-            fieldnames=output_fieldnames(args.mode, input_fieldnames),
+            fieldnames=output_fieldnames(
+                args.mode,
+                input_fieldnames,
+                args.blame,
+                include_context,
+            ),
         )
         writer.writeheader()
 
@@ -676,6 +1211,11 @@ def main() -> int:
         repo_paths: dict[str, Path | None] = {}
         assigned_location_counts: dict[tuple[str, str], int] = defaultdict(int)
         location_cache: dict[tuple[str, str], list[MatchLocation]] = {}
+        repo_status_cache: dict[str, tuple[bool, str]] = {}
+        commit_artifact_cache: dict[tuple[str, str], CommitArtifact] = {}
+        blame_cache: dict[tuple[str, str, int, int], BlameResult] = {}
+        code_context_cache: dict[tuple[str, str, int, int], tuple[str, str]] = {}
+        file_lines_cache: dict[tuple[str, str], list[str] | None] = {}
 
         for project_name in projects:
             repo_path = resolve_repo_path(project_name, args.repos_root, mapping)
@@ -695,6 +1235,8 @@ def main() -> int:
             repo_path = repo_paths.get(project_name)
             repo_index = repo_indexes.get(project_name, {})
             locations = []
+            blame_results: list[BlameResult] | None = [] if args.blame else None
+            context_results: list[tuple[str, str]] | None = [] if include_context else None
             if repo_path:
                 key = (project_name, entry["comment_text"])
                 locations = location_cache.get(key, [])
@@ -718,10 +1260,54 @@ def main() -> int:
                             assigned_location_counts[key] += 1
                     else:
                         locations = locations[:1]
+                if args.blame:
+                    blame_results = []
+                    for location in locations:
+                        blame_key = (
+                            str(repo_path.resolve()),
+                            location.file_path,
+                            location.start_line,
+                            location.end_line,
+                        )
+                        blame_result = blame_cache.get(blame_key)
+                        if blame_result is None:
+                            blame_result = blame_location(
+                                repo_path,
+                                project_name,
+                                location,
+                                artifacts_dir,
+                                repo_status_cache,
+                                commit_artifact_cache,
+                            )
+                            blame_cache[blame_key] = blame_result
+                        blame_results.append(blame_result)
+                if include_context:
+                    context_results = []
+                    for location in locations:
+                        context_key = (
+                            str(repo_path.resolve()),
+                            location.file_path,
+                            location.start_line,
+                            location.end_line,
+                        )
+                        context = code_context_cache.get(context_key)
+                        if context is None:
+                            context = extract_code_context(
+                                repo_path,
+                                location,
+                                args.context_lines,
+                                file_lines_cache,
+                            )
+                            code_context_cache[context_key] = context
+                        context_results.append(context)
             write_result_rows(
                 writer,
                 entry,
                 locations,
+                blame_results,
+                args.blame,
+                context_results,
+                include_context,
                 repo_path,
                 args.mode,
                 input_fieldnames,

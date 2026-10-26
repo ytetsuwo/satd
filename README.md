@@ -17,6 +17,7 @@
 
 - Python 3 が使えること
 - 対象プロジェクトのソースコードがローカルにあること
+- `--blame` を使う場合は対象リポジトリが Git 管理されていること
 - 入力CSVに少なくとも `project_name` と `comment_text` 列があること
 
 ## 使い方
@@ -60,6 +61,38 @@ python3 find_comment_locations.py maldonado_corrected.csv --mapping repo_map.csv
 python3 find_comment_locations.py maldonado_corrected.csv --repos-root repos
 ```
 
+一致したコメント行の `git blame` を取り、対応コミットの内容と差分も保存したい場合:
+
+```bash
+python3 find_comment_locations.py \
+  maldonado_corrected.csv \
+  --mapping repo_map.csv \
+  --blame \
+  --artifacts-dir comment_git_artifacts
+```
+
+`--blame` を付けると、マッチした行範囲に対して `git blame` を実行し、対応するコミット ID を出力 CSV に追加します。
+
+一致したコメントの前後にあるコードも出力したい場合:
+
+```bash
+python3 find_comment_locations.py \
+  maldonado_corrected.csv \
+  --mapping repo_map.csv \
+  --context-lines 3
+```
+
+`--context-lines N` を付けると、コメントの開始行より前と終了行より後の `N` 行を、それぞれ `code_before` / `code_after` として出力 CSV に追加します。`--blame` と併用できます。
+
+`--artifacts-dir` 配下には次を保存します。
+
+- `commits/<project_name>/<commit_id>/commit.txt`
+  コミットのメタデータとメッセージ
+- `commits/<project_name>/<commit_id>/diff.patch`
+  そのコミットの差分
+- `matches/<project_name>/*.json`
+  コメント範囲の各行がどのコミットに対応するか、および保存済みコミットファイルへの参照
+
 ### 3. 入力CSVを要約する
 
 ```bash
@@ -90,6 +123,12 @@ python3 csv_summary.py maldonado_corrected.csv --group-by classification --group
   主に `--mode unique` での1コメントあたりの最大出力件数。既定値は `5`
 - `--output`
   出力先CSV。`-` を指定すると標準出力
+- `--blame`
+  マッチしたコメント行に対して `git blame` を実行し、コミット情報を出力に追加
+- `--context-lines`
+  マッチしたコメントの開始行の前と終了行の後から、指定した行数を `code_before` / `code_after` として出力に追加。既定値は `0`（無効）
+- `--artifacts-dir`
+  `--blame` で取得したコミット情報、差分、行単位 blame レポートの保存先。既定値は `comment_git_artifacts`
 
 ## 入力仕様
 
@@ -133,6 +172,26 @@ project_name,classification,comment_text,satd_orig,satd
   コメント開始行
 - `end_line`
   コメント終了行
+
+`--context-lines` を付けた場合は、さらに次の列が追加されます。
+
+- `code_before`
+  コメント開始行の直前 `N` 行のコード
+- `code_after`
+  コメント終了行の直後 `N` 行のコード
+
+`--blame` を付けた場合は、さらに次の列が追加されます。
+
+- `blame_status`
+  `blamed` / `not_git_repo` / `blame_failed` など
+- `blame_commit_ids`
+  コメント範囲に対応するコミット ID の一覧
+- `blame_line_commits`
+  行番号ごとのコミット対応。例: `188-190=<sha>;191=<sha>`
+- `blame_report_path`
+  保存した行単位 blame レポート JSON のパス
+- `blame_error`
+  `git blame` や `git show` が失敗した場合のエラー内容
 
 `--mode rows` では、各入力行につき出力は最大1件です。
 
@@ -248,6 +307,15 @@ input_row,project_name,comment_text,repo_path,match_status,match_type,file_path,
 ### 重複除去
 
 同じ `file_path`, `start_line`, `end_line` を持つ候補は1件にまとめます。さらに、同じ入力行に対して複数の候補が見つかっても、`--mode rows` では最終的に1件だけを出力します。
+
+### 前後コードの取得
+
+`--context-lines N`（`N > 0`）を指定したときだけ、一致したファイルを読み込みます。
+
+- `code_before` は `start_line` の直前 `N` 行
+- `code_after` は `end_line` の直後 `N` 行
+
+複数行コメントでは、`code_after` はコメントの終了行を基準にします。読み込んだファイルは行単位でキャッシュし、同じ `file_path` / `start_line` / `end_line` の結果も再利用します。ファイルが読めない場合は空文字を出力します。
 
 ## 制約
 
