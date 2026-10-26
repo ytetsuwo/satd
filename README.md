@@ -239,6 +239,80 @@ python3 csv_summary.py maldonado_corrected.csv --group-by classification --group
 
 CR のみで改行されたファイルは `git blame` が失敗しますが、`blame_cr_only` として集計し、失敗扱いにしません。
 
+## 全件の結果
+
+`data/comment_locations_all.csv` は、`maldonado_corrected.csv` の全10プロジェクト・62,275行を
+`--mode rows --blame --no-artifacts --include-dir sql12:build` で処理した結果です。
+
+| プロジェクト | 行数 | 位置特定 | 未発見 | 空コメント |
+|---|---:|---:|---:|---:|
+| apache-ant-1.7.0 | 4,098 | 4,090 | 8 | 0 |
+| apache-jmeter-2.10 | 8,057 | 8,046 | 0 | 11 |
+| argouml | 9,452 | 9,347 | 94 | 11 |
+| columba-1.4-src | 6,468 | 6,447 | 16 | 5 |
+| emf-2.4.1 | 4,390 | 4,110 | 273 | 7 |
+| hibernate-distribution-3.3.2.GA | 2,968 | 2,966 | 1 | 1 |
+| jEdit-4.2 | 10,322 | 10,175 | 144 | 3 |
+| jfreechart-1.0.19 | 4,408 | 4,408 | 0 | 0 |
+| jruby-1.4.0 | 4,897 | 4,811 | 86 | 0 |
+| sql12 | 7,215 | 7,168 | 45 | 2 |
+| **合計** | **62,275** | **61,568** | **667** | **40** |
+
+- 位置特定率は 98.9%
+- `not_found` 667件のうち652件は `duplicate_of` が入っており、同じ本文の重複行です
+- 真の未発見は15件（jEdit 6、ant 4、argouml 3、emf 1、jruby 1）。版差や、データセット側で連結されたコメントが主な原因です
+- SATD は 4,497行中 4,478行を特定（99.6%）。SATD の真の未発見はありません
+- `ignored_empty` は `//` や `/**/` など実質的な本文がないコメント40件です
+
+### `duplicate_of`
+
+`--mode rows` では、同じプロジェクト・同じ本文（空白を正規化して比較）の入力行が複数ある場合、
+最初の入力行の `input_row` を `duplicate_of` に入れます。最初の出現行だけ空です。
+`match_status` が `not_found` や `ignored_empty` の行にも入ります。
+
+重複を除いた本文の種類は 38,770 です。分析で重複を避ける場合は、`duplicate_of` が空の行だけを使います。
+
+## SATDコミットの分類
+
+`classify_satd_commits.py` は、SATD コメントに紐付くコミットを、変更内容がコメントだけか、
+コード修正を含むかで分類します。
+
+```bash
+./classify_satd_commits.py
+```
+
+- 対象: SATD コメントに紐付く 2,192コミット
+- 出力: `data/satd_commit_classification.csv`
+- 判定: 追加・削除行のうち、コメント外にコードがある行が1行でもあれば `code`
+
+| 分類 | コミット数 | SATDコメント紐付け |
+|---|---:|---:|
+| `comment_only` | 118 | 187 |
+| `code` | 2,074 | 5,282 |
+
+`comment_only` の内訳は argouml 98、apache-jmeter 9、jfreechart 5、jruby 4、ant 2 です。
+
+## 再現
+
+```bash
+./setup_repos.sh
+python3 find_comment_locations.py maldonado_corrected.csv \
+  --mapping repo_map.csv \
+  --mode rows \
+  --blame \
+  --no-artifacts \
+  --include-dir sql12:build \
+  --output data/comment_locations_all.csv
+```
+
+全件の処理には約45分かかります。検証は次のとおりです。
+
+```bash
+python3 verify_comment_locations.py data/comment_locations_all.csv
+./check_msr16.py
+./classify_satd_commits.py
+```
+
 ## `find_comment_locations.py` の引数
 
 - `csv_path`
