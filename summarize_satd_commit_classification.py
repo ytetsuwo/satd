@@ -65,9 +65,16 @@ def main() -> int:
         type=Path,
         help="Optional second classification CSV to compare against.",
     )
+    parser.add_argument(
+        "--unique",
+        action="store_true",
+        help="Use only rows without duplicate_of (unique comments).",
+    )
     args = parser.parse_args()
 
     locations = read_csv(args.locations)
+    if args.unique:
+        locations = [row for row in locations if not row.get("duplicate_of", "")]
     commits = read_csv(args.classification)
     links = load_links(locations)
 
@@ -78,22 +85,29 @@ def main() -> int:
         errors.append(f"duplicate commit rows: {len(commits) - len(commit_rows)}")
 
     link_counts = Counter((project, commit) for project, commit, _, _ in links)
-    for key, count in link_counts.items():
-        row = commit_rows.get(key)
-        if row is None:
-            errors.append(f"linked commit missing from classification: {key}")
-            continue
-        if int(row["satd_comments"]) != count:
-            errors.append(
-                f"satd_comments mismatch: {key} csv={row['satd_comments']} links={count}"
-            )
-    for key, row in commit_rows.items():
-        if int(row["satd_comments"]) == 0:
-            errors.append(f"commit without links: {key}")
+    if args.unique:
+        for key in link_counts:
+            if key not in commit_rows:
+                errors.append(f"linked commit missing from classification: {key}")
+    else:
+        for key, count in link_counts.items():
+            row = commit_rows.get(key)
+            if row is None:
+                errors.append(f"linked commit missing from classification: {key}")
+                continue
+            if int(row["satd_comments"]) != count:
+                errors.append(
+                    f"satd_comments mismatch: {key} csv={row['satd_comments']} links={count}"
+                )
+        for key, row in commit_rows.items():
+            if int(row["satd_comments"]) == 0:
+                errors.append(f"commit without links: {key}")
 
-    total_links = sum(int(row["satd_comments"]) for row in commits)
-    if total_links != len(links):
-        errors.append(f"total links: classification={total_links} locations={len(links)}")
+        total_links = sum(int(row["satd_comments"]) for row in commits)
+        if total_links != len(links):
+            errors.append(
+                f"total links: classification={total_links} locations={len(links)}"
+            )
 
     for key, row in commit_rows.items():
         comment_lines = int(row["comment_lines"])
@@ -132,7 +146,16 @@ def main() -> int:
     if recheck_diffs:
         errors.append(f"recheck differences: {recheck_diffs}")
 
-    print(f"commits: {len(commits)}")
+    active_commits = [
+        row
+        for row in commits
+        if not args.unique or commit_key(row) in link_counts
+    ]
+
+    print(f"commits: {len(active_commits)}")
+    if args.unique:
+        print(f"all commits: {len(commits)}")
+        print(f"commits with links: {len(link_counts)}")
     print(f"SATD links: {len(links)}")
     print(f"recheck differences: {recheck_diffs}")
     print(f"validation errors: {len(errors)}")
@@ -140,7 +163,7 @@ def main() -> int:
         print(f"  {error}")
     print()
 
-    class_counts = Counter(row["classification"] for row in commits)
+    class_counts = Counter(row["classification"] for row in active_commits)
     link_class_counts = Counter(
         commit_rows[(project, commit)]["classification"]
         for project, commit, _, _ in links
@@ -151,14 +174,14 @@ def main() -> int:
     print("|---|---:|---:|---:|---:|")
     for name in ("comment_only", "code", "no_changes"):
         print(
-            f"| {name} | {class_counts[name]} | {pct(class_counts[name], len(commits))} "
+            f"| {name} | {class_counts[name]} | {pct(class_counts[name], len(active_commits))} "
             f"| {link_class_counts[name]} | {pct(link_class_counts[name], len(links))} |"
         )
     print()
 
     by_project: dict[str, Counter[str]] = defaultdict(Counter)
     links_by_project: dict[str, Counter[str]] = defaultdict(Counter)
-    for row in commits:
+    for row in active_commits:
         project = row["project_name"]
         by_project[project]["commits"] += 1
         by_project[project][row["classification"]] += 1
@@ -200,7 +223,7 @@ def main() -> int:
     print()
 
     by_year: dict[str, Counter[str]] = defaultdict(Counter)
-    for row in commits:
+    for row in active_commits:
         year = row["commit_date"][:4]
         by_year[year]["commits"] += 1
         by_year[year][row["classification"]] += 1
@@ -214,7 +237,7 @@ def main() -> int:
 
     authors = Counter()
     author_comment_only = Counter()
-    for row in commits:
+    for row in active_commits:
         author = row["author_name"]
         authors[author] += 1
         if row["classification"] == "comment_only":
@@ -229,10 +252,21 @@ def main() -> int:
     print("## top commits by SATD links")
     print("| project | commit | links | classification | subject |")
     print("|---|---|---:|---|---|")
-    for row in sorted(commits, key=lambda item: -int(item["satd_comments"]))[:10]:
+    ranked = sorted(
+        active_commits,
+        key=lambda item: -link_counts.get(
+            (item["project_name"], normalize_commit(item["commit_id"])),
+            int(item["satd_comments"]),
+        ),
+    )[:10]
+    for row in ranked:
+        count = link_counts.get(
+            (row["project_name"], normalize_commit(row["commit_id"])),
+            int(row["satd_comments"]),
+        )
         subject = row["subject"].replace("|", " ")
         print(
-            f"| {row['project_name']} | {row['commit_id'][:10]} | {row['satd_comments']} "
+            f"| {row['project_name']} | {row['commit_id'][:10]} | {count} "
             f"| {row['classification']} | {subject} |"
         )
 

@@ -317,6 +317,45 @@ CR のみで改行されたファイルは `git blame` が失敗しますが、`
 
 `comment_only` の内訳は argouml 98、apache-jmeter 9、jfreechart 5、jruby 4、ant 2 です。
 
+### コメントのみのコミットの内訳
+
+`comment_only` の118コミットについて、SATDコメント自体がどう変わったかを分類します。
+
+```bash
+python3 classify_comment_only_commits.py
+```
+
+出力は `data/comment_only_commit_changes.csv` です。
+
+| category | commits | SATDコメント |
+|---|---:|---:|
+| `other_comments` | 98 | 128 |
+| `satd_added` | 11 | 13 |
+| `satd_rewritten` | 3 | 3 |
+| `satd_kept` | 1 | 1 |
+| `mixed` | 5 | 42 |
+| `satd_deleted` | 0 | 0 |
+
+`other_comments` は、コミット自体はコメントだけを変更していますが、紐付いたSATDコメントは変更していないケースです。つまり、コメントのみのコミットの大半は、SATDコメントの追加・書き換えではありません。
+
+`satd_deleted` が0件なのは、`git blame` が現在の行の最終変更コミットを示すためです。削除されたコメントは現在の行として存在せず、blame からは観測できません。
+
+### 重複を除いた集計
+
+同じ本文の重複行を除いて集計するには、`--unique` を付けます。
+
+```bash
+python3 summarize_satd_commit_classification.py --unique
+```
+
+- ユニークな入力行: 38,770 / 62,275
+- ユニークなSATDコメント: 3,588行
+- SATDのblameリンク: 4,537
+- リンクを持つコミット: 2,061（code 1,943、comment_only 118）
+- comment_only のリンク: 180（4.0%）
+
+重複行にしか現れないコミットが131件あります。全件とユニーク版の差は、この重複由来のリンクによるものです。
+
 ## 再現
 
 ```bash
