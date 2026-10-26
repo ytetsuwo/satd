@@ -13,7 +13,7 @@
 - `setup_repos.sh`
   `repos/` を10プロジェクト分復元します（全履歴、約1.9GB）。
 - `data/`
-  原データ `technical_debt_dataset.csv` と、Maldonado らの削除研究の位置情報 `msr16_td_removal/` を置いています。
+  原データ `technical_debt_dataset.csv`、Maldonado らの削除研究の位置情報 `msr16_td_removal/`、Jitterbug 修正版 `jitterbug_corrected/` を置いています。
 - `maldonado_corrected.csv`
   入力データセットです。出所は「データの出所」を参照してください。
 
@@ -46,7 +46,24 @@ curl -LO https://raw.githubusercontent.com/maldonado/tse.satd.data/master/datase
 unzip -p technical_debt_dataset.zip technical_debt_dataset.csv > data/technical_debt_dataset.csv
 ```
 
-`satd` 列の 426 件の追加はこのリポジトリの CSV にのみ含まれ、上記の公開データには含まれていません。
+`satd` 列の 426 件の追加は、Yu らが公開している修正版と同じ内容です（下記）。
+
+### Jitterbug 修正版との関係
+
+- 修正版: `ai-se/tech-debt` リポジトリの `new_data/corrected/`（10プロジェクト分、2020-02-09 追加）
+- 取得元 URL: <https://github.com/ai-se/tech-debt/tree/master/new_data/corrected>
+- ローカルコピー: `data/jitterbug_corrected/`
+- 論文: Z. Yu, F. Fahid, H. Tu, T. Menzies, "Identifying Self-Admitted Technical Debts with Jitterbug: A Two-Step Approach," IEEE TSE, 2022.
+
+`maldonado_corrected.csv` と修正版の比較:
+
+| 項目 | 結果 |
+| --- | --- |
+| 行数 | 62,275（一致） |
+| `satd=1` と `label=yes` | 不一致 0 件 |
+| `comment_text` と `Abstract` | 空白正規化後で 8 件のみ差異（文字コードと改行に由来） |
+
+したがって、426 件の追加は本リポジトリ固有のものではなく、公開されている修正版に由来します。
 
 ## 前提
 
