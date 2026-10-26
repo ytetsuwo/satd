@@ -10,6 +10,8 @@
   入力CSVの件数、欠損、代表的な値を確認するための補助スクリプトです。
 - `repo_map.example.csv`
   `project_name` とローカルのリポジトリパスの対応表のサンプルです。
+- `setup_repos.sh`
+  `repos/` を10プロジェクト分復元します（全履歴、約1.9GB）。
 - `maldonado_corrected.csv`
   入力データセットです。出所は「データの出所」を参照してください。
 
@@ -50,6 +52,28 @@ unzip technical_debt_dataset.zip
 - 対象プロジェクトのソースコードがローカルにあること
 - `--blame` を使う場合は対象リポジトリが Git 管理されていること
 - 入力CSVに少なくとも `project_name` と `comment_text` 列があること
+
+## リポジトリの取得
+
+`repos/` が無い場合は、次のスクリプトで10プロジェクト分を復元できます。
+
+```bash
+./setup_repos.sh
+```
+
+各リポジトリを全履歴付きで clone し、データセットの版（`PROJECTS` に SHA で記載）に checkout します。約1.9GB が必要です。
+
+一部だけ取得する場合:
+
+```bash
+./setup_repos.sh jruby-1.4.0
+```
+
+保存先を変える場合は `REPOS_ROOT`、既存の複製を取り直す場合は `FORCE=1` を指定します。
+
+```bash
+REPOS_ROOT=/path/to/repos FORCE=1 ./setup_repos.sh
+```
 
 ## 使い方
 
