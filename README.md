@@ -190,10 +190,11 @@ python3 find_comment_locations.py \
   --mapping repo_map.csv \
   --blame \
   --no-artifacts \
+  --include-dir sql12:build \
   --output data/comment_locations_all.csv
 ```
 
-全履歴の `repos/` がそろっていれば、約45分で62,275行を処理します。
+`--include-dir sql12:build` は、sql12 の `build/` 配下にあるソースを検索対象に戻すための指定です。全履歴の `repos/` がそろっていれば、約45分で62,275行を処理します。
 
 ### 3. 入力CSVを要約する
 
@@ -231,6 +232,8 @@ python3 csv_summary.py maldonado_corrected.csv --group-by classification --group
 - 出力行と `maldonado_corrected.csv` の `input_row` 対応、全行の網羅
 - `file_path` と行番号の妥当性（ファイルの存在、行範囲）
 - コメント本文が該当行にあるか（完全一致、部分一致、コメント断片の順序一致）
+- `duplicate_of` が同じ本文・同じプロジェクトの先行行を指しているか
+- `ignored_empty` が位置情報を持たないこと
 - blame の成否と `blame_commit_ids` / `blame_line_commits`
 - 本文の不一致率が `--max-text-failure-rate`（既定 1%）を超えると `FAIL`
 
@@ -252,6 +255,10 @@ CR のみで改行されたファイルは `git blame` が失敗しますが、`
   `project_name + comment_text` 単位で重複をまとめて出力
 - `--max-matches`
   主に `--mode unique` での1コメントあたりの最大出力件数。既定値は `5`
+- `--allow-reuse`
+  `--mode rows` で、データセット上の出現数がリポジトリ上の出現数より多い場合に、既に割り当てた位置を再利用する
+- `--include-dir`
+  通常は無視するディレクトリ名を検索対象に戻す。`sql12:build` のように `project_name:ディレクトリ名` で特定プロジェクトだけに適用できる。複数指定可
 - `--output`
   出力先CSV。`-` を指定すると標準出力
 - `--blame`
@@ -296,7 +303,8 @@ project_name,classification,comment_text,satd_orig,satd
 - `repo_path`
   検索に使ったローカルリポジトリパス
 - `match_status`
-  `matched` / `not_found` / `repo_not_found`
+  `matched` / `not_found` / `repo_not_found` / `ignored_empty`
+  `ignored_empty` は `//` や `/**/` など実質的な本文を持たないコメント
 - `match_type`
   どう一致したかを示す内部種別
 - `file_path`
@@ -305,6 +313,8 @@ project_name,classification,comment_text,satd_orig,satd
   コメント開始行
 - `end_line`
   コメント終了行
+- `duplicate_of`
+  `--mode rows` で、同じ本文の別の入力行が先に同じ位置へ割り当てられている場合、その入力行番号。位置が不足して `not_found` になった行にも、最初に一致した入力行番号が入る
 
 `--context-lines` を付けた場合は、さらに次の列が追加されます。
 
@@ -379,6 +389,7 @@ input_row,project_name,comment_text,repo_path,match_status,match_type,file_path,
 - 拡張子が `TEXT_SUFFIXES` に含まれる
 - サイズが 2MB 以下
 - `.git`, `node_modules`, `build`, `dist`, `target` などの除外ディレクトリ配下ではない
+- `--include-dir` で指定した名前のディレクトリは除外しない
 
 ### コメント抽出
 
@@ -392,8 +403,12 @@ input_row,project_name,comment_text,repo_path,match_status,match_type,file_path,
 実装上のポイント:
 
 - 連続した `//` コメントは1つのブロックとしてまとめます
+- 1行に複数のコメントがある場合は、それぞれを別ブロックとして抽出します（例: `true/*a*/, false/*b*/`）
+- `*//*` のようにブロックの終了と開始が連続する場合は、2つのブロックに分けます
+- ブロックコメントは終了記号 `*/` で切り、後ろのコードは本文に含めません
 - `// ... // ...` のように CSV 上で1行に潰れたコメントは復元候補を作って照合します
 - 文字列リテラル中の `//` や `/*` はコメント開始として扱いません
+- ソースは UTF-8 を優先し、失敗した場合は CP1252 で読みます
 - `//************************************************************************` のような記号列も `//` コメントとして扱います
 - `//$NON-NLS-1$` のような行末コメントも抽出対象です
 - `//` のようにコメント記号しか無く、実質的な本文を持たないコメントは検索対象から除外します

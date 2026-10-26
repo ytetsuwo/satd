@@ -45,6 +45,7 @@ class ProjectStats:
     total: int = 0
     matched: int = 0
     not_found: int = 0
+    ignored_empty: int = 0
     repo_not_found: int = 0
     other_status: int = 0
     exact: int = 0
@@ -137,6 +138,7 @@ def main() -> int:
     file_cache: dict[Path, list[str] | None] = {}
     cr_only_cache: dict[Path, bool] = {}
     row_number_errors = 0
+    duplicate_errors = 0
     dataset_by_row = {number: row for number, row in enumerate(dataset, start=2)}
     covered_rows: set[int] = set()
 
@@ -145,6 +147,7 @@ def main() -> int:
         project_stats = stats[project]
         project_stats.total += 1
 
+        input_row = 0
         if "input_row" in fieldnames and row["input_row"]:
             input_row = int(row["input_row"])
             covered_rows.add(input_row)
@@ -159,6 +162,23 @@ def main() -> int:
         ):
             row_number_errors += 1
 
+        duplicate_of = row.get("duplicate_of", "").strip()
+        if duplicate_of:
+            try:
+                duplicate_row = int(duplicate_of)
+            except ValueError:
+                duplicate_errors += 1
+            else:
+                source = dataset_by_row.get(duplicate_row)
+                if (
+                    source is None
+                    or duplicate_row >= input_row
+                    or source["project_name"] != project
+                    or normalize(source["comment_text"])
+                    != normalize(row["comment_text"])
+                ):
+                    duplicate_errors += 1
+
         status = row["match_status"]
         if status == "repo_not_found":
             project_stats.repo_not_found += 1
@@ -167,6 +187,11 @@ def main() -> int:
             continue
         if status == "not_found":
             project_stats.not_found += 1
+            if not row["repo_path"] or row["file_path"]:
+                project_stats.structural_errors += 1
+            continue
+        if status == "ignored_empty":
+            project_stats.ignored_empty += 1
             if not row["repo_path"] or row["file_path"]:
                 project_stats.structural_errors += 1
             continue
@@ -255,6 +280,7 @@ def main() -> int:
         )
     )
     print(f"input row / dataset differences: {row_number_errors}")
+    print(f"duplicate_of errors: {duplicate_errors}")
     print()
     print(
         f"{'project':<32} {'rows':>6} {'matched':>8} {'not_found':>9} "
@@ -290,6 +316,7 @@ def main() -> int:
     text_rate = text_mismatch / matched if matched else 0.0
     failed = (
         row_number_errors > 0
+        or duplicate_errors > 0
         or missing_rows > 0
         or structural > 0
         or (check_blame and blame_other > 0)

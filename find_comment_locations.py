@@ -72,6 +72,7 @@ LOCATION_FIELDS = (
     "file_path",
     "start_line",
     "end_line",
+    "duplicate_of",
 )
 CONTEXT_FIELDS = ("code_before", "code_after")
 BLAME_FIELDS = (
@@ -230,6 +231,24 @@ def parse_args() -> argparse.Namespace:
         help="Maximum number of matched locations to emit per comment.",
     )
     parser.add_argument(
+        "--allow-reuse",
+        action="store_true",
+        help=(
+            "In rows mode, reuse an already assigned location when a comment "
+            "occurs more often in the dataset than in the repository."
+        ),
+    )
+    parser.add_argument(
+        "--include-dir",
+        action="append",
+        default=[],
+        metavar="[PROJECT:]NAME",
+        help=(
+            "Scan directories with this name even though they are normally "
+            "ignored (for example sql12:build). Can be used multiple times."
+        ),
+    )
+    parser.add_argument(
         "--output",
         default="comment_locations.csv",
         help="Output CSV path. Use - for stdout.",
@@ -266,6 +285,19 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     return parser.parse_args()
+
+
+def parse_include_dirs(values: list[str]) -> dict[str, set[str]]:
+    include_dirs: dict[str, set[str]] = defaultdict(set)
+    for value in values:
+        if ":" in value:
+            project, directory = value.split(":", 1)
+            if not project or not directory:
+                raise ValueError(f"invalid --include-dir value: {value}")
+            include_dirs[project].add(directory)
+        else:
+            include_dirs["*"].add(value)
+    return dict(include_dirs)
 
 
 def load_input_rows(csv_path: Path, projects: set[str]) -> tuple[list[str], list[dict[str, str]]]:
@@ -335,12 +367,13 @@ def should_scan_file(path: Path) -> bool:
         return False
 
 
-def iter_source_files(repo_path: Path):
+def iter_source_files(repo_path: Path, include_dirs: set[str] | None = None):
+    ignored = IGNORED_DIRS - (include_dirs or set())
     for path in repo_path.rglob("*"):
-        if path.is_dir() and path.name in IGNORED_DIRS:
+        if path.is_dir() and path.name in ignored:
             continue
         if path.is_file() and should_scan_file(path):
-            if any(part in IGNORED_DIRS for part in path.parts):
+            if any(part in ignored for part in path.parts):
                 continue
             yield path
 
@@ -405,12 +438,19 @@ def normalized_comment_variants(text: str, strip_prefix: bool) -> list[list[str]
     return variants
 
 
-def clip_block_comment(line: str, start: int, marker: str) -> str:
-    end_marker = "*/" if marker == "/*" else "-->"
-    end = line.find(end_marker, start + len(marker))
-    if end < 0:
-        return line[start:]
-    return line[start:end + len(end_marker)]
+def read_source_text(path: Path) -> str | None:
+    """Read a source file, falling back to legacy encodings."""
+
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return None
+    for encoding in ("utf-8", "cp1252"):
+        try:
+            return data.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return data.decode("latin-1")
 
 
 def find_unquoted_marker(line: str, markers: tuple[str, ...]) -> tuple[int, str] | None:
@@ -440,22 +480,6 @@ def find_unquoted_marker(line: str, markers: tuple[str, ...]) -> tuple[int, str]
     return None
 
 
-def detect_single_line_comment(line: str) -> tuple[str, str] | None:
-    found = find_unquoted_marker(line, ("//", "/*", "<!--"))
-    if found is not None:
-        position, marker = found
-        if marker in {"/*", "<!--"}:
-            return clip_block_comment(line, position, marker), marker
-        return line[position:], marker
-
-    stripped = line.lstrip()
-    for marker in ("--", "#", ";"):
-        if stripped.startswith(marker):
-            return stripped, marker
-
-    return None
-
-
 def read_source_lines(content: str) -> list[str]:
     """Split source text into physical lines.
 
@@ -472,20 +496,19 @@ def read_source_lines(content: str) -> list[str]:
 
 
 def extract_comment_blocks(path: Path) -> list[CommentBlock]:
-    try:
-        content = path.read_text(encoding="utf-8", errors="ignore")
-    except OSError:
+    content = read_source_text(path)
+    if content is None:
         return []
 
     blocks: list[CommentBlock] = []
     lines = read_source_lines(content)
     in_block = False
+    block_lines: list[str] = []
+    block_start = 0
     end_marker = ""
-    current_lines: list[str] = []
-    current_start = 0
-    single_comment_lines: list[str] = []
-    single_comment_start = 0
-    single_comment_marker = ""
+    run_lines: list[str] = []
+    run_start = 0
+    run_marker = ""
 
     def add_block(text: str, start_line: int, end_line: int) -> None:
         blocks.append(
@@ -496,74 +519,112 @@ def extract_comment_blocks(path: Path) -> list[CommentBlock]:
             )
         )
 
-    def flush_single_comment_block(end_line: int) -> None:
-        nonlocal single_comment_lines, single_comment_start, single_comment_marker
-        if not single_comment_lines:
-            return
-        add_block(
-            "\n".join(single_comment_lines),
-            single_comment_start,
-            end_line,
-        )
-        single_comment_lines = []
-        single_comment_start = 0
-        single_comment_marker = ""
+    def flush_run(end_line: int) -> None:
+        nonlocal run_lines, run_start, run_marker
+        if run_lines:
+            add_block("\n".join(run_lines), run_start, end_line)
+        run_lines = []
+        run_start = 0
+        run_marker = ""
+
+    def append_run(text: str, marker: str, line_number: int) -> None:
+        nonlocal run_lines, run_start, run_marker
+        if run_lines and run_marker != marker:
+            flush_run(line_number - 1)
+        if not run_lines:
+            run_start = line_number
+            run_marker = marker
+        run_lines.append(text)
+
+    def flush_block(end_line: int) -> None:
+        nonlocal in_block, block_lines, block_start, end_marker
+        if block_lines:
+            add_block("\n".join(block_lines), block_start, end_line)
+        in_block = False
+        block_lines = []
+        block_start = 0
+        end_marker = ""
+
+    def scan(text: str, line_number: int) -> None:
+        nonlocal in_block, block_lines, block_start, end_marker
+        position = 0
+        while position < len(text):
+            found = find_unquoted_marker(text[position:], ("//", "/*", "<!--"))
+            if found is None:
+                return
+            offset, marker = found
+            index = position + offset
+            inline = bool(text[:index].strip())
+            if marker == "//":
+                if inline:
+                    flush_run(line_number - 1)
+                    add_block(text[index:], line_number, line_number)
+                else:
+                    append_run(text[index:], "//", line_number)
+                return
+
+            closing = "*/" if marker == "/*" else "-->"
+            end = text.find(closing, index + len(marker))
+            if end < 0:
+                flush_run(line_number - 1)
+                block_lines = [text[index:]]
+                block_start = line_number
+                end_marker = closing
+                in_block = True
+                return
+
+            flush_run(line_number - 1)
+            add_block(text[index:end + len(closing)], line_number, line_number)
+            position = end + len(closing)
 
     for line_number, line in enumerate(lines, start=1):
         if in_block:
-            flush_single_comment_block(line_number - 1)
-            current_lines.append(line)
-            if end_marker and end_marker in line:
-                add_block(
-                    "\n".join(current_lines),
-                    current_start,
-                    line_number,
-                )
-                current_lines = []
-                current_start = 0
-                in_block = False
-                end_marker = ""
+            end = line.find(end_marker)
+            if end < 0:
+                block_lines.append(line)
+                continue
+            block_lines.append(line[:end + len(end_marker)])
+            closing_length = len(end_marker)
+            flush_block(line_number)
+            scan(line[end + closing_length:], line_number)
             continue
 
-        block_marker = None
-        block_position = -1
-        first_marker = find_unquoted_marker(line, ("//", "/*", "<!--"))
-        if first_marker is not None:
-            block_position, block_marker = first_marker
-
-        if block_marker in {"/*", "<!--"}:
-            flush_single_comment_block(line_number - 1)
-            current_start = line_number
-            current_lines = [clip_block_comment(line, block_position, block_marker)]
-            end_marker = "*/" if block_marker == "/*" else "-->"
-            if end_marker in current_lines[0] and current_lines[0].find(end_marker) > 0:
-                add_block(current_lines[0], current_start, line_number)
-                current_lines = []
-                current_start = 0
-                end_marker = ""
+        if find_unquoted_marker(line, ("//", "/*", "<!--")) is None:
+            stripped = line.lstrip()
+            marker = next(
+                (candidate for candidate in ("--", "#", ";") if stripped.startswith(candidate)),
+                None,
+            )
+            if marker is not None and stripped != marker:
+                append_run(stripped, marker, line_number)
             else:
-                in_block = True
+                flush_run(line_number - 1)
             continue
 
-        single_line = detect_single_line_comment(line)
-        if single_line:
-            comment_text, marker = single_line
-            if not single_comment_lines:
-                single_comment_lines = [comment_text]
-                single_comment_start = line_number
-                single_comment_marker = marker
-            elif marker == single_comment_marker:
-                single_comment_lines.append(comment_text)
-            else:
-                flush_single_comment_block(line_number - 1)
-                single_comment_lines = [comment_text]
-                single_comment_start = line_number
-                single_comment_marker = marker
+        scan(line, line_number)
+
+    flush_run(len(lines))
+    if in_block:
+        flush_block(len(lines))
+
+    # Also index consecutive line comments as one merged block.  The
+    # Maldonado dataset sometimes joins comments from adjacent lines that
+    # have code between them, and this variant matches that form.
+    merged_lines: list[str] = []
+    merged_start = 0
+    for line_number, line in enumerate(lines, start=1):
+        found = find_unquoted_marker(line, ("//",))
+        if found is None:
+            if merged_lines:
+                add_block("\n".join(merged_lines), merged_start, line_number - 1)
+                merged_lines = []
+                merged_start = 0
             continue
-
-        flush_single_comment_block(line_number - 1)
-
-    flush_single_comment_block(len(lines))
+        if not merged_lines:
+            merged_start = line_number
+        merged_lines.append(line[found[0]:])
+    if merged_lines:
+        add_block("\n".join(merged_lines), merged_start, len(lines))
 
     return blocks
 
@@ -586,10 +647,12 @@ def add_index_match(
     )
 
 
-def build_repo_index(repo_path: Path) -> RepoIndex:
+def build_repo_index(
+    repo_path: Path, include_dirs: set[str] | None = None
+) -> RepoIndex:
     index: RepoIndex = defaultdict(list)
 
-    for source_file in iter_source_files(repo_path):
+    for source_file in iter_source_files(repo_path, include_dirs):
         relative_path = str(source_file.relative_to(repo_path))
         for block in extract_comment_blocks(source_file):
             if not has_substantive_comment_text(block.text):
@@ -1016,7 +1079,10 @@ def load_repo_file_lines(
         return cache[cache_key]
 
     try:
-        content = (repo_path / file_path).read_text(encoding="utf-8", errors="ignore")
+        content = read_source_text(repo_path / file_path)
+        if content is None:
+            cache[cache_key] = None
+            return None
     except OSError:
         cache[cache_key] = None
         return None
@@ -1128,8 +1194,13 @@ def match_fields(
     repo_path: str,
     status: str,
     location: MatchLocation | None = None,
+    duplicate_of: str = "",
 ) -> dict[str, str]:
-    fields = {"repo_path": repo_path, "match_status": status}
+    fields = {
+        "repo_path": repo_path,
+        "match_status": status,
+        "duplicate_of": duplicate_of,
+    }
     if location is None:
         fields.update(
             match_type="",
@@ -1173,8 +1244,9 @@ def write_status_row(
     status: str,
     include_blame: bool,
     include_context: bool,
+    duplicate_of: str = "",
 ) -> None:
-    row = row_prefix | match_fields(repo_path, status)
+    row = row_prefix | match_fields(repo_path, status, duplicate_of=duplicate_of)
     if include_blame:
         row |= empty_blame_fields()
     if include_context:
@@ -1193,19 +1265,32 @@ def write_result_rows(
     repo_path: Path | None,
     mode: str,
     input_fieldnames: list[str],
+    duplicate_of: str = "",
 ) -> None:
     row_prefix = build_row_prefix(base_row, mode, input_fieldnames)
 
     if repo_path is None:
         write_status_row(
-            writer, row_prefix, "", "repo_not_found", include_blame, include_context
+            writer,
+            row_prefix,
+            "",
+            "repo_not_found",
+            include_blame,
+            include_context,
+            duplicate_of,
         )
         return
 
     repo_value = str(repo_path)
     if not locations:
         write_status_row(
-            writer, row_prefix, repo_value, "not_found", include_blame, include_context
+            writer,
+            row_prefix,
+            repo_value,
+            "not_found",
+            include_blame,
+            include_context,
+            duplicate_of,
         )
         return
 
@@ -1218,7 +1303,9 @@ def write_result_rows(
         if include_context and context_results is not None and index < len(context_results):
             context_result = context_results[index]
 
-        row = row_prefix | match_fields(repo_value, "matched", location)
+        row = row_prefix | match_fields(
+            repo_value, "matched", location, duplicate_of
+        )
         if include_context:
             row |= code_context_fields(context_result)
         if include_blame:
@@ -1230,6 +1317,7 @@ def build_repo_indexes(
     projects: list[str],
     repos_root: Path | None,
     mapping: dict[str, Path],
+    include_dirs: dict[str, set[str]],
 ) -> tuple[dict[str, RepoIndex], dict[str, Path | None]]:
     repo_indexes: dict[str, RepoIndex] = {}
     repo_paths: dict[str, Path | None] = {}
@@ -1245,7 +1333,8 @@ def build_repo_indexes(
             continue
 
         print(f"[info] indexing {project_name}: {repo_path}", file=sys.stderr)
-        repo_indexes[project_name] = build_repo_index(repo_path)
+        dirs = include_dirs.get(project_name, set()) | include_dirs.get("*", set())
+        repo_indexes[project_name] = build_repo_index(repo_path, dirs)
 
     return repo_indexes, repo_paths
 
@@ -1268,6 +1357,7 @@ def select_locations(
     assigned_counts: dict[tuple[str, str], int],
     location_cache: dict[tuple[str, str], list[MatchLocation]],
     mode: str,
+    allow_reuse: bool,
 ) -> list[MatchLocation]:
     key = (entry["project_name"], entry["comment_text"])
     if key not in location_cache:
@@ -1282,9 +1372,13 @@ def select_locations(
 
     if row_comment_counts.get(key, 0) > 1:
         used_count = assigned_counts[key]
-        selected = locations[used_count:used_count + 1]
-        if selected:
-            assigned_counts[key] += 1
+        if used_count < len(locations):
+            selected = locations[used_count:used_count + 1]
+        elif allow_reuse and locations:
+            selected = locations[used_count % len(locations):used_count % len(locations) + 1]
+        else:
+            selected = []
+        assigned_counts[key] += 1
         return selected
 
     return locations[:1]
@@ -1353,6 +1447,8 @@ def write_entries(
 ) -> None:
     assigned_location_counts: dict[tuple[str, str], int] = defaultdict(int)
     location_cache: dict[tuple[str, str], list[MatchLocation]] = {}
+    first_row_by_location: dict[tuple[str, str, str, str, int, int], str] = {}
+    first_row_by_comment: dict[tuple[str, str], str] = {}
     repo_status_cache: dict[str, tuple[bool, str]] = {}
     commit_artifact_cache: dict[tuple[str, str], CommitArtifact] = {}
     blame_cache: dict[tuple[str, str, int, int], BlameResult] = {}
@@ -1367,6 +1463,16 @@ def write_entries(
         context_results: list[tuple[str, str]] | None = [] if include_context else None
 
         if repo_path is not None:
+            if not has_substantive_comment_text(entry["comment_text"]):
+                write_status_row(
+                    writer,
+                    build_row_prefix(entry, args.mode, input_fieldnames),
+                    str(repo_path),
+                    "ignored_empty",
+                    args.blame,
+                    include_context,
+                )
+                continue
             locations = select_locations(
                 entry,
                 repo_path,
@@ -1376,6 +1482,7 @@ def write_entries(
                 assigned_location_counts,
                 location_cache,
                 args.mode,
+                args.allow_reuse,
             )
             if args.blame:
                 blame_results = collect_blame_results(
@@ -1396,6 +1503,24 @@ def write_entries(
                     code_context_cache,
                 )
 
+        duplicate_of = ""
+        if args.mode == "rows":
+            input_row = entry.get("_row_number", "")
+            normalized_comment = " ".join(entry["comment_text"].split())
+            comment_key = (project_name, normalized_comment)
+            if locations:
+                owner_key = (
+                    project_name,
+                    normalized_comment,
+                    *location_key(repo_path, locations[0]),
+                )
+                owner = first_row_by_location.setdefault(owner_key, input_row)
+                if owner != input_row:
+                    duplicate_of = owner
+                first_row_by_comment.setdefault(comment_key, input_row)
+            else:
+                duplicate_of = first_row_by_comment.get(comment_key, "")
+
         write_result_rows(
             writer,
             entry,
@@ -1407,6 +1532,7 @@ def write_entries(
             repo_path,
             args.mode,
             input_fieldnames,
+            duplicate_of,
         )
 
 
@@ -1446,6 +1572,7 @@ def main() -> int:
             projects,
             args.repos_root,
             mapping,
+            parse_include_dirs(args.include_dir),
         )
         write_entries(
             writer,
