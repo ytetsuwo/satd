@@ -1,4 +1,5 @@
 comment_locations.csv
 repos/
-archive/
 comment_git_artifacts/
+__pycache__/
+*.pyc
