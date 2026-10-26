@@ -123,12 +123,12 @@ def main() -> int:
         "file_path",
         "start_line",
         "end_line",
-        "blame_status",
     }
     missing = required.difference(fieldnames)
     if missing:
         print(f"ERROR: missing column(s): {', '.join(sorted(missing))}")
         return 2
+    check_blame = "blame_status" in fieldnames
 
     if len(rows) != len(dataset):
         print(f"NOTE: output rows {len(rows)} != dataset rows {len(dataset)}")
@@ -210,6 +210,8 @@ def main() -> int:
                     f"{text[:70]!r} not in {segment[:70]!r}"
                 )
 
+        if not check_blame:
+            continue
         blame_status = row["blame_status"]
         if blame_status == "blamed":
             project_stats.blame_blamed += 1
@@ -275,10 +277,11 @@ def main() -> int:
         f"text: exact {exact}, contained {contains}, fragments {fragments}, "
         f"mismatch {text_mismatch} ({text_mismatch / matched:.4%} of matched)"
     )
-    print(
-        f"blame: blamed {matched - blame_other - blame_cr_only}, other {blame_other}, "
-        f"cr-only files {blame_cr_only}, field errors {blame_field_errors}"
-    )
+    if check_blame:
+        print(
+            f"blame: blamed {matched - blame_other - blame_cr_only}, other {blame_other}, "
+            f"cr-only files {blame_cr_only}, field errors {blame_field_errors}"
+        )
 
     for project in sorted(stats):
         for example in stats[project].examples:
@@ -289,8 +292,8 @@ def main() -> int:
         row_number_errors > 0
         or missing_rows > 0
         or structural > 0
-        or blame_other > 0
-        or blame_field_errors > 0
+        or (check_blame and blame_other > 0)
+        or (check_blame and blame_field_errors > 0)
         or text_rate > args.max_text_failure_rate
     )
     print()

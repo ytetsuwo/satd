@@ -106,6 +106,15 @@ REPOS_ROOT=/path/to/repos FORCE=1 ./setup_repos.sh
 
 ディレクトリ名は `maldonado_corrected.csv` の `project_name` と一致させています。
 
+#### ArgoUML の版について
+
+データセット上の `argouml` は 0.34 とされていますが、コメント本文は 0.34（2011-12-15）のソースとは一致しません。0.34 では見つからない、または本文が一致しないコメントが、`VERSION_0_35_1`（2014-08-31）のソースには存在します。
+
+- 0.34: 9,452行中 9,301行を特定、本文の不一致 80件
+- 0.35.1: 9,452行中 9,345行を特定、本文の不一致 0件
+
+このため `repo_map.csv` と `setup_repos.sh` では ArgoUML を 0.35.1 にしています。
+
 ```csv
 project_name,repo_path
 apache-ant-1.7.0,repos/apache-ant-1.7.0

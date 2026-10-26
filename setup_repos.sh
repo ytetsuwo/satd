@@ -19,7 +19,7 @@ FORCE="${FORCE:-0}"
 PROJECTS=(
   "apache-ant-1.7.0|https://github.com/apache/ant.git|6bfe7759b0d7662f764a6efd97436b48aa74da2a|ANT_170"
   "apache-jmeter-2.10|https://github.com/apache/jmeter.git|c6184b5e7ffeb56364ed43074504f9539a3b9f01|v2_10"
-  "argouml|https://github.com/argouml-tigris-org/argouml.git|20de5bdccc18e361010cb22aea5d79d1b047b1a8|VERSION_0_34"
+  "argouml|https://github.com/argouml-tigris-org/argouml.git|809df978f10c3fde97d238b57abca8a7e5149a44|VERSION_0_35_1"
   "columba-1.4-src|https://github.com/RobertHSchmidt/columba.git|c2ab39e1eb4acc84ae0f85f7dcd51f973f110a2e|master"
   "emf-2.4.1|https://github.com/eclipse-emf/org.eclipse.emf.git|dae4755d3993f95322a07ab661e63f9d061a4217|R2_4_maintenance"
   "hibernate-distribution-3.3.2.GA|https://github.com/hibernate/hibernate-orm.git|6b66b08b88afb4c7219c603964e07be8df85a2ea|3.3"
