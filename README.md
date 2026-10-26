@@ -11,7 +11,38 @@
 - `repo_map.example.csv`
   `project_name` とローカルのリポジトリパスの対応表のサンプルです。
 - `maldonado_corrected.csv`
-  入力データセットです。
+  入力データセットです。出所は「データの出所」を参照してください。
+
+## データの出所
+
+`maldonado_corrected.csv` は、Maldonado らが公開している SATD データセットから作成した派生ファイルです。
+
+- 原データ: `maldonado/tse.satd.data` リポジトリの `dataset/technical_debt_dataset.zip` に含まれる `technical_debt_dataset.csv`
+- 取得元 URL: <https://github.com/maldonado/tse.satd.data>（zip は <https://raw.githubusercontent.com/maldonado/tse.satd.data/master/dataset/technical_debt_dataset.zip>）
+- 原データの列: `projectname,classification,commenttext`、62,275 行、10 プロジェクト
+- 出典論文:
+  - E. da S. Maldonado and E. Shihab, "Detecting and Quantifying Different Types of Self-Admitted Technical Debt," MTD 2015.
+  - E. da S. Maldonado, E. Shihab, and N. Tsantalis, "Using Natural Language Processing to Automatically Detect Self-Admitted Technical Debt," IEEE TSE, 43(11), 2017.
+  - 論文では 62,566 コメントと報告されていますが、公開されている CSV は 62,275 行です。
+
+`maldonado_corrected.csv` は原データと行単位・行順で一致しており、差分は次の列だけです。
+
+| 列 | 内容 |
+| --- | --- |
+| `project_name` / `comment_text` | 原データの `projectname` / `commenttext` を改名 |
+| `satd_orig` | 原データの `classification` が `WITHOUT_CLASSIFICATION` 以外なら `1`（4,071 件） |
+| `satd` | 修正後のラベル（4,497 件）。`satd_orig` の 4,071 件に 426 件を追加し、削除はなし |
+
+追加された 426 件は、原データで `WITHOUT_CLASSIFICATION` だったコメントのうち、TODO、FIXME、XXX、HACK、workaround などの語を含むものです。追加分の `classification` は `WITHOUT_CLASSIFICATION` のままです。
+
+再取得する場合:
+
+```bash
+curl -LO https://raw.githubusercontent.com/maldonado/tse.satd.data/master/dataset/technical_debt_dataset.zip
+unzip technical_debt_dataset.zip
+```
+
+`satd` 列の 426 件の追加はこのリポジトリの CSV にのみ含まれ、上記の公開データには含まれていません。
 
 ## 前提
 
