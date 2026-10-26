@@ -264,6 +264,31 @@ CR のみで改行されたファイルは `git blame` が失敗しますが、`
 - SATD は 4,497行中 4,478行を特定（99.6%）。SATD の真の未発見はありません
 - `ignored_empty` は `//` や `/**/` など実質的な本文がないコメント40件です
 
+### 真の未発見15件の内訳
+
+`not_found` 667件のうち、`duplicate_of` が空の15件です。すべて `WITHOUT_CLASSIFICATION` で、SATD は含まれません。
+
+| 原因 | 件数 | プロジェクト | 内容 |
+|---|---:|---|---|
+| データセット側の破損・重複 | 2 | argouml 1、jEdit 1 | 本文はリポジトリにあるが、データセット側の文字列が壊れている、または繰り返されている |
+| コメントだがリポジトリでは実行コード | 6 | ant 4、emf 1、jruby 1 | データセット作成時と版が異なり、該当版ではコメントアウトされていない |
+| 本文が版に存在しない | 7 | jEdit 5、argouml 2 | 4.2 のソースに該当するコメントがない |
+
+個別の内容:
+
+- **ant 1,235 / 1,369 / 1,479 / 1,742**: `//weblogic.ejb.utils.DDCreator.main(args);`、`//weblogic.ejbc.main(args);`、`//weblogic.ejb.utils.DDCreator.main(newArgs);`、`//weblogic.ejbc.main(newArgs);`。1.7.0 では `DDCreatorHelper.java:108/114`、`EjbcHelper.java:252/256` に `//` のない実行コードとして存在する
+- **emf 32,098**: `//Platform.getBundle(element.getNamespaceIdentifier()).loadClass(contributorClassName);`。`ContentHandlerRegistryReader.java:76` では実行コード
+- **jruby 50,872**: `//runtime.getWarnings().warn(ID.STRUCT_CONSTANT_REDEFINED, ...);`。`RubyStruct.java:214` では実行コード
+- **argouml 16,237**: `PathComparator.java:124-131` にブロックは存在するが、データセット側で `é, É` が U+FFFD（`�`）に破損している
+- **argouml 19,965**: `@see org.argouml.uml.diagram.ui.FigEdgeModelElement#getNameBounds()` の javadoc が存在しない（`getNameBounds()` 自体は別クラスにある）
+- **argouml 20,592**: `// why are we here?` が存在しない
+- **jEdit 41,688**: `Interpreter.java:147` に1回だけ存在するコメントを、データセットが3回連結している
+- **jEdit 36,312 / 37,356 / 37,898 / 43,589 / 43,595**: `// end JcmdProcess.java`、`/* call sendBreak after fixed number of lines of stdout are read */`、`// cwd not implemented in this version`、`// end JcmdProcessTest.java`、`/* Get full command line */` が 4.2 に存在しない
+
+15件は全体の 0.024% です。位置特定の失敗ではなく、データセットの本文とリポジトリの内容が一致しないケースです。SATD の分析には影響しません。
+
+回復できる可能性があるのは、U+FFFD を許容する正規化で argouml 1件、コメント断片の照合で jEdit 1件です。残り13件は版・採取元の差で、リポジトリ側からは回復できません。
+
 ### `duplicate_of`
 
 `--mode rows` では、同じプロジェクト・同じ本文（空白を正規化して比較）の入力行が複数ある場合、
