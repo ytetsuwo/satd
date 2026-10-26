@@ -12,6 +12,8 @@
   `project_name` とローカルのリポジトリパスの対応表のサンプルです。
 - `setup_repos.sh`
   `repos/` を10プロジェクト分復元します（全履歴、約1.9GB）。
+- `data/`
+  原データ `technical_debt_dataset.csv` と、Maldonado らの削除研究の位置情報 `msr16_td_removal/` を置いています。
 - `maldonado_corrected.csv`
   入力データセットです。出所は「データの出所」を参照してください。
 
@@ -19,7 +21,7 @@
 
 `maldonado_corrected.csv` は、Maldonado らが公開している SATD データセットから作成した派生ファイルです。
 
-- 原データ: `maldonado/tse.satd.data` リポジトリの `dataset/technical_debt_dataset.zip` に含まれる `technical_debt_dataset.csv`
+- 原データ: `maldonado/tse.satd.data` リポジトリの `dataset/technical_debt_dataset.zip` に含まれる `technical_debt_dataset.csv`（ローカルコピーは `data/technical_debt_dataset.csv`）
 - 取得元 URL: <https://github.com/maldonado/tse.satd.data>（zip は <https://raw.githubusercontent.com/maldonado/tse.satd.data/master/dataset/technical_debt_dataset.zip>）
 - 原データの列: `projectname,classification,commenttext`、62,275 行、10 プロジェクト
 - 出典論文:
@@ -41,7 +43,7 @@
 
 ```bash
 curl -LO https://raw.githubusercontent.com/maldonado/tse.satd.data/master/dataset/technical_debt_dataset.zip
-unzip technical_debt_dataset.zip
+unzip -p technical_debt_dataset.zip technical_debt_dataset.csv > data/technical_debt_dataset.csv
 ```
 
 `satd` 列の 426 件の追加はこのリポジトリの CSV にのみ含まれ、上記の公開データには含まれていません。
