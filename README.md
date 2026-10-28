@@ -14,6 +14,8 @@
   `project_name` とローカルのリポジトリパスの対応表のサンプルです。
 - `setup_repos.sh`
   `repos/` を10プロジェクト分復元します（全履歴、約1.9GB）。
+- `jdt_extractor/`
+  JDT を使ったコメント抽出の再実装です。データセットのファイル集合に対する比較結果を `data/jdt_extractor_counts.csv` に置いています。
 - `data/`
   原データ `technical_debt_dataset.csv`、Maldonado らの削除研究の位置情報 `msr16_td_removal/`、Jitterbug 修正版 `jitterbug_corrected/` を置いています。
 - `maldonado_corrected.csv`

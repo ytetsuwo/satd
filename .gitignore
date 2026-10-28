@@ -3,3 +3,6 @@ repos/
 comment_git_artifacts/
 __pycache__/
 *.pyc
+jdt_files.csv
+jdt_out.csv
+jdt_out.csv.comments.csv
